@@ -1,0 +1,131 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+
+// @version=5
+// @description Functions for acquiring outlier levels and deriving a cleaned version of a series.
+library("DataCleaner")
+
+//////////////////////////////////////////////////
+// @function Gets the (standard deviation) outlier level for a given series.
+// @param src The series to average and add a multiple of the standard deviation to.
+// @param len The The number of bars to measure. 
+// @param level The positive or negative multiple of the standard deviation to apply to the average. A positive number will be the upper boundary and a negative number will be the lower boundary. 
+// @returns The average of the series plus the multiple of the standard deviation. 
+export outlierLevel(
+  series float src,
+  simple int len,
+  simple float level)=>
+    if level == 0
+        runtime.error('Passing a level of (0) zero to "outlierLevel" is simply the average.')
+    avg = ta.sma(src, len)
+    std = ta.stdev(src, len)
+    avg + std * level
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Returns an array representing the result series with (outliers provided by the source) removed.
+// @param src The source series to read from.
+// @param result The result series.
+// @param len The maximum size of the resultant array.
+// @param maxDeviation The positive or negative multiple of the standard deviation to apply to the average. A positive number will be the upper boundary and a negative number will be the lower boundary. 
+// @returns An array containing the cleaned series. 
+export cleanUsing(
+  series float src,
+  series float result,
+  simple int len,
+  simple float maxDeviation) =>
+
+    var cleaned = array.new_float() 
+
+    if maxDeviation == 0
+        runtime.error('Cannot clean a series with a "maxDeviation" of (0) zero.')
+        cleaned
+
+    else
+        // Hold the previous value so it's not included in the set yet.
+        var raw = array.new_float()
+
+        var level = outlierLevel(src, len, maxDeviation)
+
+        // Is the value in bounds?  Add it to the series.
+        if(maxDeviation > 0 and src < level or maxDeviation < 0 and src > level)
+            array.push(cleaned, result)
+
+        // Maxed out results?
+        if(array.size(cleaned) > len)
+            array.shift(cleaned)
+
+        level := outlierLevel(src, len, maxDeviation)
+
+        cleaned    
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Returns an array representing the source series with outliers removed.
+// @param src The source series to read from.
+// @param len The maximum size of the resultant array.
+// @param maxDeviation The positive or negative multiple of the standard deviation to apply to the average. A positive number will be the upper boundary and a negative number will be the lower boundary. 
+// @returns An array containing the cleaned series. 
+export clean(
+  series float src,
+  simple int len,
+  simple float maxDeviation) =>
+    cleanUsing(src, src, len, maxDeviation)
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Returns an array representing the source array with outliers removed.
+// @param src The source series to read from.
+// @param maxDeviation The positive or negative multiple of the standard deviation to apply to the average. A positive number will be the upper boundary and a negative number will be the lower boundary. 
+// @returns An array containing the cleaned series. 
+export cleanArray(
+  float[] src,
+  simple float maxDeviation) =>
+    avg = array.avg(src)
+    stdev = array.stdev(src)
+    cleaned = array.new_float()
+    last = array.size(src) - 1
+    level = stdev * maxDeviation
+    hi = avg + level
+    lo = avg - level
+    for i = 0 to last
+        v = array.get(src, i)
+        if lo < v and v < hi
+            array.push(cleaned, v)
+    cleaned 
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Gets the (standard deviation) outlier level for a given series after a single pass of removing any outliers.
+// @param src The series to average and add a multiple of the standard deviation to.
+// @param len The The number of bars to measure. 
+// @param level The positive or negative multiple of the standard deviation to apply to the average. A positive number will be the upper boundary and a negative number will be the lower boundary. 
+// @param maxDeviation The optional standard deviation level to use when cleaning the series.  The default is the value of the provided level. 
+// @returns The average of the series plus the multiple of the standard deviation. 
+export outlierLevelAdjusted(
+  series float src,
+  simple int len,
+  simple float level,
+  simple float maxDeviation = 0)=>
+    if level == 0
+        runtime.error('Passing a level of (0) zero to "outlierLevel" is simply the average.')
+    cleaned = clean(src, len, maxDeviation==0 ? level : maxDeviation)
+    avg = array.avg(cleaned)
+    std = array.stdev(cleaned)  
+    avg + std * level
+//////////////////////////////////////////////////
+
+len = input.int(200, "Length")
+maxDev = input.float(2, "Max Deviation", minval=1)
+level = input.float(4, "Max Deviation After Cleaning", minval=1)
+//plot(ta.atr(len), "ATR", color.red)
+
+candleHeight = high - low
+plot(candleHeight, "Candle Height", color.yellow)
+
+before = outlierLevel(candleHeight, len, maxDev)
+plot(before, "Deviation Before Adjustment", color.orange)
+
+after = outlierLevelAdjusted(candleHeight, len, level)
+plot(after, "Deviation After Adjustment", color.green)
+

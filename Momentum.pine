@@ -1,0 +1,77 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+
+// @version=5
+// @description Contains utilities varying algorithms for measuring momentum.
+library('Momentum')
+import Electrified/MovingAverages/3 as MA
+
+///////////////////////////////////////////////////
+// @function Derives momentum from two moving averages of different lengths.
+// @param fast The length of the fast moving average.
+// @param slow The length of the slow moving average.
+// @param src The series to measure from. Default is 'close'.
+// @param fastType The type of moving average the fast should use. Values allowed are: SMA, EMA, WMA, VWMA and VAWMA.
+// @param slowType The type of moving average the slow should use. Values allowed are: SMA, EMA, WMA, VWMA and VAWMA.
+export simple(
+  simple int fast,
+  simple int slow,
+  series float src = close,
+  simple string fastType = "SMA",
+  simple string slowType = "SMA") =>
+    if fast > slow
+        runtime.error("A fast length that is greater than the slow length will cause inverted momentum results.")
+    MA.get(fastType, fast, src) - MA.get(slowType, slow, src)
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns the K and D values of a Stochastic RSI. Allows for different moving averages to produce the K value.
+// @param smoothK The length to average the stochastic.
+// @param smoothD The length to smooth out K and produce D.
+// @param rsiLen The length of the RSI.
+// @param stochLen The length of stochastic.
+// @param src The series to measure from. Default is 'close'.
+// @param kmode The type of moving average to generate. Values allowed are: SMA, EMA, WMA, VWMA and VAWMA.
+// @returns [K, D]
+export stochRSI(
+  simple int smoothK,
+  simple int smoothD,
+  simple int rsiLen,
+  simple int stochLen,
+  series float src = close,
+  simple string kmode = "SMA") =>
+    rsi1 = ta.rsi(src, rsiLen)
+    stoch = ta.stoch(rsi1, rsi1, rsi1, stochLen)
+    k = MA.get(kmode, smoothK, stoch)
+    d = ta.sma(k, smoothD)
+    [k, d]
+///////////////////////////////////////////////////
+
+// @function Same as well-known MACD formula but allows for different moving averages types to be used.
+// @param fast The length of the fast moving average.
+// @param slow The length of the slow moving average.
+// @param signal The length of average to applied to smooth out the signal.
+// @param src The series to measure from. Default is 'close'.
+// @param fastType The type of moving average the fast should use. Values allowed are: SMA, EMA, WMA, VWMA and VAWMA.
+// @param slowType The type of moving average the slow should use. Values allowed are: SMA, EMA, WMA, VWMA and VAWMA.
+// @param slowType The type of moving average the signal should use. Values allowed are: SMA, EMA, WMA, VWMA and VAWMA.
+// @returns [macd, signal, histogram]
+export macd(
+  simple int fast = 12,
+  simple int slow = 26,
+  simple int signal = 9,
+  series float src = close,
+  simple string fastType = "EMA",
+  simple string slowType = "EMA",
+  simple string signalType = "SMA") =>
+    macdValue = simple(fast, slow, src, fastType, slowType)    
+    signalValue = MA.get(signalType, signal, macdValue)
+    hist = macdValue - signalValue
+    [macdValue, signalValue, hist]
+///////////////////////////////////////////////////
+
+// Example:
+[m, s, h] = macd()
+plot(m, "MACD", color.blue)
+plot(s, "Signal", color.yellow)
+plot(h, "Histogram", color.gray, style=plot.style_histogram)

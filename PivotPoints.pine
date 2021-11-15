@@ -1,0 +1,166 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+
+// @version=5
+// @description Provides the traditional daily pivot values and a pivot vacinity function.
+library('PivotPointsDailyTraditional', true)
+import Electrified/DailyLevels/8 as Daily
+
+// https://www.tradingview.com/support/solutions/43000521824-pivot-points-standard/
+// Traditional
+// PP = (HIGHprev + LOWprev + CLOSEprev) / 3
+// R1 = PP * 2 - LOWprev
+// S1 = PP * 2 - HIGHprev
+// R2 = PP + (HIGHprev - LOWprev)
+// S2 = PP - (HIGHprev - LOWprev)
+// R3 = PP * 2 + (HIGHprev - 2 * LOWprev)
+// S3 = PP * 2 - (2 * HIGHprev - LOWprev)
+// R4 = PP * 3 + (HIGHprev - 3 * LOWprev)
+// S4 = PP * 3 - (3 * HIGHprev - LOWprev)
+// R5 = PP * 4 + (HIGHprev - 4 * LOWprev)
+// S5 = PP * 4 - (4 * HIGHprev - LOWprev)
+
+
+///////////////////////////////////////////////////
+// @function Returns the P value.
+// @param level The level to caclulate.
+// @param daysPrior The number of days in the past to do the calculation.
+export P(
+  simple int daysPrior = 0) =>
+    Daily.HLC3(daysPrior + 1)
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Calculates the R value for a given pivot level.
+// @param level The level to caclulate.
+// @param daysPrior The number of days in the past to do the calculation.
+export R(
+  int level,
+  simple int daysPrior = 0) =>
+    day = daysPrior + 1
+    switch level
+        1 => P(daysPrior) * 2 - Daily.L(day) 
+        2 => P(daysPrior) + Daily.H(day) - Daily.L(day)
+        =>
+            if level < 1
+                runtime.error('"level" must be at least one.')
+                na
+            else
+                ratio = level - 1
+                P(daysPrior) * ratio + Daily.H(day) - ratio * Daily.L(day)
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Calculates the S value for a given pivot level.
+// @param level The level to caclulate.
+// @param daysPrior The number of days in the past to do the calculation.
+export S(
+  int level,
+  simple int daysPrior = 0) =>
+    day = daysPrior + 1
+    switch level
+        1 => P(daysPrior) * 2 - Daily.H(day) 
+        2 => P(daysPrior) - Daily.H(day) + Daily.L(day)
+        =>
+            if level < 1
+                runtime.error('"level" must be at least one.')
+                na
+            else
+                ratio = level - 1
+                P(daysPrior) * ratio + Daily.L(day) - ratio * Daily.H(day)
+///////////////////////////////////////////////////
+
+levelsUp(
+  simple int daysPrior,
+  simple int maxLevel = 3) =>
+    levels = array.new_float(maxLevel + 1)
+    array.set(levels, 0, P(daysPrior))
+    for i = 1 to maxLevel
+        array.set(levels, i, R(i, daysPrior))
+    levels
+////
+
+levelsDn(
+  simple int daysPrior,
+  simple int maxLevel = 3) =>
+    levels = array.new_float(maxLevel + 1)
+    array.set(levels, 0, P(daysPrior))
+    for i = 1 to maxLevel
+        array.set(levels, i, S(i, daysPrior))
+    levels    
+////
+
+
+///////////////////////////////////////////////////
+// @function Returns a value representing where the provided value is in relation to each pivot level.
+// @param value The value to compare against.
+// @param daysPrior The number of days in the past to do the calculation.
+// @param maxLevel The maximum number of pivot levels to include.
+export vacinity(
+  float value,
+  simple int daysPrior = 0,
+  simple int maxLevel = 3) =>
+
+    level = 0
+    levelBounds = 2  
+    UP = levelsUp(daysPrior, maxLevel)
+    DN = levelsDn(daysPrior, maxLevel)
+    p = array.get(UP, 0)
+    if value == p
+        0
+        
+    else if value > p
+
+        levels = UP
+        lo = p
+        hi = array.get(levels, 1)
+        while(levelBounds < maxLevel and value > hi)
+            levelNext = level + 1
+            levelBounds := levelNext + 1
+            lo := hi
+            hi := array.get(levels, levelBounds)
+            level := levelNext
+
+        (value - lo) / (hi - lo) + level
+        
+    else if value < p
+
+        levels = DN
+        hi = p
+        lo = array.get(levels, 1)
+        while(levelBounds < maxLevel and value < lo)
+            levelNext = level + 1
+            levelBounds := levelNext + 1
+            hi := lo
+            lo := array.get(levels, levelBounds)
+            level := levelNext
+
+        (value - hi) / (hi - lo) - level
+        
+    else
+        na
+///////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////
+// Pivot Levels Example ///////////////////////////
+p = P()
+plot(p, "P")
+plot(R(1), "R1", color.red)
+plot(R(2), "R2", color.red)
+plot(S(1), "S1", color.green)
+plot(S(2), "S2", color.green)
+///////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////
+// Vacinity Testing ///////////////////////////////
+// hline(2)
+// hline(1)
+// hline(0)
+// hline(-1)
+// hline(-2)
+
+// c = close > p ? color.green : color.red
+// plot(vacinity(close), color=c)
+///////////////////////////////////////////////////

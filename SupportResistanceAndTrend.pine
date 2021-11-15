@@ -1,0 +1,244 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+
+// @version=5
+// @description Contains utilities for finding key levels of support, resistance and direction of trend.
+library('SupportResitanceAndTrend', true)
+import Electrified/MovingAverages/3 as MA
+import Electrified/DataCleaner/1 as Data
+
+// @function A more flexible version of SuperTrend that allows for supplying the series used and sensitivity adjustment by confirming close bars.
+// @param multiple The multiple to apply to the average true range.
+// @param h The high values.
+// @param l The low values.
+// @param atr The average true range values.
+// @param closeBars The number of bars to confirm a change in trend.
+// @returns [trend, up, dn, unconfirmed, warn, reversal]
+export superTrendPlus(
+  simple float multiple,
+  series float h,
+  series float l,
+  series float atr,
+  simple int closeBars = 0) =>
+    up = l-(multiple*atr)
+    up1 = nz(up[1], up)
+    up := l[1] > up1 ? math.max(up, up1) : up
+    dn = h+(multiple*atr)
+    dn1 = nz(dn[1], dn)
+    dn := h[1] < dn1 ? math.min(dn, dn1) : dn
+
+    var lastU = up1
+    var lastD = dn1
+    var trend = 0
+    var confirmation = 0
+    var unconfirmed = 0
+
+    // cover gap cases
+    if(trend != +1 and l > lastD)
+        trend := +1
+    else if(trend != -1 and h < lastU)
+        trend := -1
+    
+    // confirmed cases
+    else if(trend != +1 and h > lastD)
+        unconfirmed += 1
+        if(confirmation<closeBars and close[1]>lastD)
+            confirmation += 1
+        if(confirmation>=closeBars)
+            trend := +1       
+    else if(trend != -1 and l < lastU)
+        unconfirmed += 1
+        if(confirmation<closeBars and close[1]<lastU)
+            confirmation += 1
+        if(confirmation>=closeBars)
+            trend := -1
+
+    if(trend[1]!=trend)
+        lastU := up1
+        lastD := dn1
+        confirmation := 0
+        unconfirmed := 0
+    else
+        lastU := trend==+1 ? math.max(lastU, up1) : up1
+        lastD := trend==-1 ? math.min(lastD, dn1) : dn1
+        // Trend is clearly continuing?  Reset confirmation.
+        if(trend==+1 and dn1>dn1[1] or trend==-1 and up1<up1[1])
+            confirmation := 0
+            unconfirmed := 0
+
+    [trend, lastU, lastD, unconfirmed, unconfirmed[1]==0 and unconfirmed > 0, trend != trend[1]]
+///
+
+// @function superTrendPlus with simplified parameters.
+// @param multiple The multiple to apply to the average true range.
+// @param period The number of bars to measure.
+// @param mode The type of moving average to use with the true range.
+// @param closeBars The number of bars to confirm a change in trend.
+// @returns [trend, up, dn, unconfirmed, warn, reversal]
+export superTrend(
+  simple float multiple,
+  simple int period,
+  simple string mode = 'WMA',
+  simple int closeBars = 0) =>
+    superTrendPlus(multiple, high, low, MA.getMA(mode, period, ta.tr), closeBars)
+///
+
+// @function superTrendPlus with simplified parameters and compensation for extreme volatility.
+// @param multiple The multiple to apply to the average true range.
+// @param period The number of bars to measure.
+// @param mode The type of moving average to use with the true range.
+// @param closeBars The number of bars to confirm a change in trend.
+// @param level The optional positive or negative multiple of the standard deviation to apply to the average. A positive number will be the upper boundary and a negative number will be the lower boundary. 
+// @param maxDeviation The optional standard deviation level to use when cleaning the series.  The default is the value of the provided level. 
+// @returns [trend, up, dn, unconfirmed, warn, reversal]
+export superTrendCleaned(
+  simple float multiple,
+  simple int period,
+  simple int closeBars = 0,
+  simple float level = 1,
+  simple float maxDeviation = 1) =>
+    trAdjusted = Data.outlierLevelAdjusted(ta.tr, period, level, maxDeviation)
+    superTrendPlus(multiple, high, low, trAdjusted, closeBars)
+///
+
+// @function Identifies support and resistance levels by when a stochastic RSI reverses.
+// @returns [trend, up, dn, unconfirmed, warn, reversal]
+export stochSR(
+  simple int smoothK,
+  simple int smoothD,
+  simple int lengthRSI,
+  simple int lengthStoch,
+  series float src = hlc3,
+  simple float lowerBand = 20,
+  simple float upperBand = 80,
+  simple float lowerReversal = 20,
+  simple float upperReversal = 80) =>
+    rsi1 = ta.rsi(src, lengthRSI)
+    stoch = ta.stoch(rsi1, rsi1, rsi1, lengthStoch)
+    k = ta.wma(stoch, smoothK)
+    d = ta.sma(k, smoothD)
+    k_c = ta.change(k)
+    d_c = ta.change(d)
+    kd = k - d
+
+    var hi = high
+    var lo = low
+    var phi = high
+    var plo = low
+    var state = 0
+
+    if(d<lowerBand)
+        phi := high
+    if(d>upperBand)
+        plo := low
+
+    if(high>phi)
+        phi := high
+    if(low<plo)
+        plo := low    
+
+    if(state!=-1 and d<lowerBand)
+        state := -1
+    else if(state!=+1 and d>upperBand)
+        state := +1
+
+    if(hi>phi and state==+1 and k<d and k<lowerReversal)
+        hi := phi
+    if(lo<plo and state==-1 and k>d and k>upperReversal)
+        lo := plo
+
+    if(high>hi)
+        hi := high
+    if(low<lo)
+        lo := low
+
+    [lo, hi]
+///
+
+// @function Identifies anchored VWAP levels by when a stochastic RSI reverses.
+// @returns [loAVWAP, hiAVWAP, hiAVWAP_next, loAVWAP_next]
+export stochAVWAP(
+  simple int smoothK,
+  simple int smoothD,
+  simple int lengthRSI,
+  simple int lengthStoch,
+  series float src = hlc3,
+  simple float lowerBand = 20,
+  simple float upperBand = 80,
+  simple float lowerReversal = 20,
+  simple float upperReversal = 80,
+  simple bool useHiLow = false) =>
+    rsi1 = ta.rsi(src, lengthRSI)
+    stoch = ta.stoch(rsi1, rsi1, rsi1, lengthStoch)
+    k = ta.wma(stoch, smoothK)
+    d = ta.sma(k, smoothD)
+    k_c = ta.change(k)
+    d_c = ta.change(d)
+    kd = k - d
+
+    var hi = high
+    var lo = low
+    var phi = high
+    var plo = low
+    var state = 0
+
+    var float hiAVWAP_s = 0
+    var float loAVWAP_s = 0
+    var float hiAVWAP_v = 0
+    var float loAVWAP_v = 0
+    var float hiAVWAP_s_next = 0
+    var float loAVWAP_s_next = 0
+    var float hiAVWAP_v_next = 0
+    var float loAVWAP_v_next = 0
+
+    if(d<lowerBand or high>phi)
+        phi := high
+        hiAVWAP_s_next := 0
+        hiAVWAP_v_next := 0
+    if(d>upperBand or low<plo)
+        plo := low
+        loAVWAP_s_next := 0
+        loAVWAP_v_next := 0
+
+    if(high>hi)
+        hi := high
+        hiAVWAP_s := 0
+        hiAVWAP_v := 0    
+    if(low<lo)
+        lo := low
+        loAVWAP_s := 0
+        loAVWAP_v := 0
+
+    vwapHi = useHiLow ? high : hlc3
+    vwapLo = useHiLow ? low : hlc3
+        
+    hiAVWAP_s += vwapHi * volume
+    loAVWAP_s += vwapLo * volume
+    hiAVWAP_v += volume
+    loAVWAP_v += volume
+    hiAVWAP_s_next += vwapHi * volume
+    loAVWAP_s_next += vwapLo * volume
+    hiAVWAP_v_next += volume
+    loAVWAP_v_next += volume
+
+
+    if(state!=-1 and d<lowerBand)
+        state := -1
+    else if(state!=+1 and d>upperBand)
+        state := +1
+
+    if(hi>phi and state==+1 and k<d and k<lowerReversal)
+        hi := phi
+        hiAVWAP_s := hiAVWAP_s_next
+        hiAVWAP_v := hiAVWAP_v_next
+    if(lo<plo and state==-1 and k>d and k>upperReversal)
+        lo := plo
+        loAVWAP_s := loAVWAP_s_next
+        loAVWAP_v := loAVWAP_v_next
+        
+    hiAVWAP = hiAVWAP_s / hiAVWAP_v
+    loAVWAP = loAVWAP_s / loAVWAP_v
+    hiAVWAP_next = hiAVWAP_s_next / hiAVWAP_v_next
+    loAVWAP_next = loAVWAP_s_next / loAVWAP_v_next
+
+    [loAVWAP, hiAVWAP, hiAVWAP_next, loAVWAP_next]

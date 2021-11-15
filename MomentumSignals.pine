@@ -1,0 +1,202 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+
+// @version=5
+// @description Contains utilities varying algorithms for detecting key changes in momentum.  Note: Momentum is not velocity and should be used in conjunction with other indicators.  A change in momentum does not mean a reversal of velocity or trend.
+library('MomentumSignals')
+import Electrified/MovingAverages/3 as MA
+import Electrified/Momentum/2
+
+quantize(float value, simple int up = 1, simple int dn = -1) =>
+    na(value) ? na : value > 0 ? up : value < 0 ? dn : 0
+
+signalOnly(
+  series float s) =>
+    quantize(ta.change(s))
+
+// Changes in direction at the key.
+reverseSignalOnly(
+  series float s,
+  simple int len = 2) =>
+    c = ta.change(s, len)
+    if c > 0 and s < 0
+        +1
+    else if c < 0 and s > 0
+        -1
+    else
+        0
+
+// Simplified super-trend algo
+trend(series float h, series float d, int len, float m = 1) =>
+    var lo = h
+    var hi = h
+    var direction = 0
+
+    if na(lo)
+        lo := h
+    if na(hi)
+        hi := h
+
+    std = ta.stdev(d, len)
+  
+    if h > hi
+        direction := +1
+        hi := h
+        lo := h - std * m
+    else if h < lo
+        direction := -1
+        lo := h
+        hi := h + std * m
+    
+    [direction, std]
+////
+
+///////////////////////////////////////////////////
+// @function Compares two series for changes in momentum to derive signal values.
+// @param primary The primary series (typically a moving average) to look for changes in momentum.
+// @param secondary The secondary series (typically derived moving average of the primary) to use as a comparison value.
+// @param len The number of bars to measure the change in momentum.
+export simple(
+  series float primary,
+  series float secondary) =>
+    p = signalOnly(primary)
+    s = signalOnly(secondary)
+    h = primary - secondary // similar to the histogram in MACD.
+    d = ta.change(h)
+    x = quantize(d)
+
+    p + s + x
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Compares two series for changes in momentum to derive signal values. Uses statistics to filter out changes in momentum.
+// @param primary The primary series (typically a moving average) to look for changes in momentum.
+// @param secondary The secondary series (typically derived moving average of the primary) to use as a comparison value.
+// @param len The number of bars to measure the change in momentum.
+// @param stdlen The number of bars to measure the change in momentum for filtering.
+// @param stdMultiple The multiple of the change in momentum to use before reversiing.
+export filtered(
+  series float primary,
+  series float secondary,
+  simple int stdlen = 200,
+  simple float stdMultiple = 3.5) =>
+    p = signalOnly(primary)
+    s = signalOnly(secondary)
+    h = primary - secondary // similar to the histogram in MACD.
+    d = ta.change(h)
+    [t, std] = trend(h, d, stdlen, stdMultiple)
+    x = t > 0 and d < 0 or t < 0 and d > 0 ? 0 : quantize(d)
+
+    p + s + x
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Compares two series for changes in momentum to derive signal values. Uses statistics to filter out changes in momentum. Does not signal when likely overbought or oversold.
+// @param primary The primary series (typically a moving average) to look for changes in momentum.
+// @param secondary The secondary series (typically derived moving average of the primary) to use as a comparison value.
+// @param stdlen The number of bars to measure the change in momentum for filtering.
+// @param stdMultiple The multiple of the change in momentum to use before reversiing.
+export special(
+  series float primary,
+  series float secondary,
+  simple int stdlen = 200,
+  simple float stdMultiple = 3.5) =>
+    p = signalOnly(primary)
+    s = signalOnly(secondary)
+    h = primary - secondary // similar to the histogram in MACD.
+    d = ta.change(h)
+    [t, std] = trend(h, d, stdlen, stdMultiple)
+    sm = std * stdMultiple / 2
+    x = t > 0 and d < 0 or t < 0 and d > 0 ? 0 : quantize(d)
+    r = p + s + x
+    // When the signal level has exceeded the histogram, signals become more risky.
+    r := primary > secondary and secondary > h or primary < secondary and secondary < h ? x : r
+    // Filter out noise.
+    r > 0 and primary > 0 and primary < secondary or r < 0 and primary < 0 and primary > secondary ? 0 : r
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns a signal value representing the stage of where the RSI is in its cycle.
+// @param smoothK The length to average the stochastic.
+// @param smoothD The length to smooth out K and produce D.
+// @param rsiLen The length of the RSI.
+// @param stochLen The length of stochastic.
+// @param src The series to measure from. Default is 'close'.
+// @param kmode The type of moving average to generate. Values allowed are: SMA, EMA, WMA, VWMA and VAWMA.
+// @param upper The upper band of the range.
+// @param lower The lower band of the range.
+// @returns [K, D]
+export stochRSI(
+  simple int smoothK,
+  simple int smoothD,
+  simple int rsiLen,
+  simple int stochLen,
+  series float src = close,
+  simple string kmode = "SMA",
+  simple float upper = 80,
+  simple float lower = 20) =>
+    [k, d] = Momentum.stochRSI(smoothK, smoothD, rsiLen, stochLen, src, kmode)
+
+    // Where are we?
+    var stage = 0
+    if k < lower
+        stage := -2 // oversold
+    else if k > upper
+        stage := +2 // overbought
+    else if k < 50
+        stage := -1 // transitioning under 50
+    else if k > 50
+        stage := +1 // transitioning over 50
+
+    stage_c = ta.change(stage)
+    k_c = quantize(ta.change(k))
+    d_c = quantize(ta.change(d))
+
+    // Avoid noisy alignment...
+    if k_c != d_c or k_c != quantize(k - d)
+        0
+    else
+        if stage_c > 0 and stage == -1
+            k_c + 1
+        else if stage_c < 0 and stage == +1
+            k_c - 1
+        else if d < lower
+            k_c < 0 ? 0 : k_c
+        else if d > upper
+            k_c > 0 ? 0 : k_c
+        else
+            k_c
+///////////////////////////////////////////////////
+
+
+
+
+// Example:
+SMA = 'SMA', EMA = 'EMA', WMA = 'WMA', VWMA = 'VWMA', VAWMA = 'VAWMA'
+[m, s, h] = Momentum.macd(
+  input.int(24, "MACD Length", minval=1),
+  input.int(52, "Signal Length", minval=1),
+  input.int(12, "Signal Smoothing", minval=1),
+  input.source(hlc3, "Source"),
+  input.string(WMA, "MACD MA Type", options=[SMA,EMA,WMA,VWMA,VAWMA]),
+  input.string(WMA, "Signal MA Type", options=[SMA,EMA,WMA,VWMA,VAWMA]))
+  
+stdLen = input.int(200, "StdDev Length", minval=1, tooltip="Length of standard deviation measurement of historgram change")
+stdM = input.float(3.5, "StdDev Multiple", minval=0, step=0.5, tooltip="The number of standard deviations before momentum may have reversed")
+  
+plot(m, "MACD", color.blue)
+plot(s, "Signal", color.yellow)
+plot(h, "Histogram", color.gray, style=plot.style_columns)
+
+signal = special(m, s, stdLen, stdM)
+//plot(signal, "Signal", color.orange)
+color signalColor = switch signal
+    +3 => color.new(color.green, 40)
+    +2 => color.new(color.green, 60)
+    +1 => color.new(color.green, 80)
+    -1 => color.new(color.red, 80)
+    -2 => color.new(color.red, 60)
+    -3 => color.new(color.red, 40)
+    => na
+
+bgcolor(signalColor)

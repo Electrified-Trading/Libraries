@@ -1,0 +1,24 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified
+
+//@version=5
+// @description Utilities for measuring time.
+library("Time")
+
+// @function Gets the number of milliseconds per bar.
+export bar() =>
+    var int msPerDay = 1000 * 60 * 60 * 24
+    var int m = if timeframe.isdaily
+        msPerDay
+    else if timeframe.isweekly
+        msPerDay * 7
+    else if timeframe.ismonthly
+        msPerDay * 30
+    else if timeframe.isseconds
+        1000
+    else if timeframe.isminutes
+        1000 * 60
+    var value = m * timeframe.multiplier
+    value
+
+plot(bar())

@@ -1,0 +1,440 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+
+// @version=5
+// @description Functions for acquiring daily timeframe data by number of prior days.
+library('DailyLevels', true)
+import Electrified/SessionInfo/9 as Session
+
+_open( 
+  simple int daysPrior,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var float result = na
+    if daysPrior < 0
+        runtime.error('DailyLevels._open(daysPrior) cannot be at less than zero.')
+        result
+    if timeframe.isdaily
+        result := open[daysPrior]
+    else if not timeframe.isintraday
+        result
+    else if daysPrior == 0
+        // Current day does not have a valid value until session is open.
+        if Session.isBefore(spec, res)
+            result := na
+        else if Session.isFirstBar(spec, res) or na(result)
+            result := open // this could be na
+        else
+            result
+    else
+        d = daysPrior + 1 // need +1 to skip current day.
+        var days = array.new_float()
+        if Session.isFirstBar(spec, res) or na(result)
+            result := open
+            array.push(days, result)
+
+        if array.size(days)>d
+            array.shift(days)
+
+        array.size(days) < d ? na : array.get(days, 0)
+////
+
+_high(
+  series float src,
+  simple int daysPrior,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var float result = na
+    if daysPrior < 0
+        runtime.error('DailyLevels._high(daysPrior) cannot be at less than zero.')
+        result  
+    else if timeframe.isdaily
+        result := src[daysPrior]
+    else if not timeframe.isintraday
+        result
+    else if daysPrior == 0
+        var today = src
+        if Session.isFirstBar(spec, res) or src > today and Session.isIn(spec, res)
+            today := src
+        result := today
+    else
+        var days = array.new_float()
+        if Session.isIn(spec, res) and (na(result) or src > result)
+            result := src
+
+        if Session.wasLastBar(spec, res) and not na(result)
+            array.push(days, result[1])
+            result := na
+
+        if array.size(days)>daysPrior
+            array.shift(days)
+
+        array.size(days) < daysPrior ? na : array.get(days, 0)
+////
+
+_low(
+  series float src,
+  simple int daysPrior,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var float result = na
+    if daysPrior < 0
+        runtime.error('DailyLevels._low(daysPrior) cannot be at less than zero.')
+        result  
+    else if timeframe.isdaily
+        result := src[daysPrior]
+    else if not timeframe.isintraday
+        result
+    else if daysPrior == 0
+        var today = src
+        if Session.isFirstBar(spec, res) or src < today and Session.isIn(spec, res)
+            today := src
+        result := today
+    else
+        var days = array.new_float()
+        if Session.isIn(spec, res) and (na(result) or src < result)
+            result := src
+
+        if Session.wasLastBar(spec, res) and not na(result)
+            array.push(days, result[1])
+            result := na
+
+        if array.size(days)>daysPrior
+            array.shift(days)
+
+        array.size(days) < daysPrior ? na : array.get(days, 0)
+////
+
+_close( 
+  simple int daysPrior,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    max_bars_back(close, 9999)  
+
+    var float result = na
+    if daysPrior < 0
+        runtime.error('DailyLevels._close(daysPrior) cannot be at less than zero.')
+        result   
+    if timeframe.isdaily
+        result := close[daysPrior]
+    else if not timeframe.isintraday
+        result
+    else if daysPrior == 0
+        // Current day does not have a valid value until session is open.
+        if Session.isBefore(spec, res)
+            result := na
+        else if not na(close) and Session.isIn(spec, res)
+            result := close // this could be na
+        else
+            result
+    else
+        var days = array.new_float()
+        if Session.wasLastBar(spec, res) or na(result)
+            result := close[1]
+            array.push(days, result)
+
+        if array.size(days)>daysPrior
+            array.shift(days)
+
+        array.size(days) < daysPrior ? na : array.get(days, 0)
+////
+
+//////////////////////////////////////////////////
+// @function Gets the open for the number of days prior.
+// @param daysPrior Number of days back to get the open from.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns The open for the number of days prior.
+export O( 
+  simple int daysPrior = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    _open(daysPrior, spec, res)
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Gets the highest value for the number of days prior. 
+// @param src The series to use for values. 
+// @param daysPrior Number of days back to get the high from.
+// @param extraForward Number of extra days forward to include.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns The high for the number of days prior.
+export highOf( 
+  series float src,
+  simple int daysPrior = 0,
+  simple int extraForward = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var int notYet = na
+    if extraForward < 0
+        runtime.error('DailyLevels.highOf(extraForward) must be at least zero.')
+        notYet
+    else if extraForward > daysPrior
+        runtime.error('DailyLevels.highOf(extraForward) has not enough days back to meet the requested extra.')
+        notYet      
+    else
+        hi = _high(src, daysPrior, spec, res)
+        e = extraForward
+        while e > 0
+            v = _high(src, daysPrior - e, spec, res)
+            if v > hi
+                hi := v
+            e -= 1
+        hi
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Gets the highest value for the number of days prior.  
+// @param daysPrior Number of days back to get the high from.
+// @param extraForward Number of extra days forward to include.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns The high for the number of days prior.
+export H( 
+  simple int daysPrior = 0,
+  simple int extraForward = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    highOf(high, daysPrior, extraForward, spec, res)
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Gets the lowest value for the number of days prior.  
+// @param src The series to use for values. 
+// @param daysPrior Number of days back to get the low from.
+// @param extraForward Number of extra days forward to include.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns The low for the number of days prior.
+export lowOf(
+  series float src,
+  simple int daysPrior = 0,
+  simple int extraForward = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var int notYet = na
+    if extraForward < 0
+        runtime.error('DailyLevels.lowOf(extraForward) must be at least zero.')
+        notYet
+    else if extraForward > daysPrior
+        runtime.error('DailyLevels.lowOf(extraForward) has not enough days back to meet the requested extra.')
+        notYet      
+    else
+        lo = _low(src, daysPrior, spec, res)
+        e = extraForward
+        while e > 0
+            v = _low(src, daysPrior - e, spec, res)
+            if v < lo
+                lo := v
+            e -= 1
+        lo
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Gets the lowest value for the number of days prior.  
+// @param daysPrior Number of days back to get the low from.
+// @param extraForward Number of extra days forward to include.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns The low for the number of days prior.
+export L( 
+  simple int daysPrior = 0,
+  simple int extraForward = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    lowOf(low, daysPrior, extraForward, spec, res)
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Gets the close for the number of days prior.  
+// @param daysPrior Number of days back to get the close from.  0 produces the current close.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns The close for the number of days prior.
+export C( 
+  simple int daysPrior = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    _close(daysPrior, spec, res)
+//////////////////////////////////////////////////
+
+_hlc3( 
+  simple int daysPrior,
+  simple int extraForward = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var float result = na
+    if daysPrior < 0
+        runtime.error('DailyLevels._hlc3(daysPrior) cannot be at less than zero.')
+        result
+    else  
+        hi = H(daysPrior, extraForward, spec, res)
+        lo = L(daysPrior, extraForward, spec, res)
+        c = _close(daysPrior - extraForward, spec, res)
+        (hi + lo + c) / 3
+////
+
+//////////////////////////////////////////////////
+// @function Gets the HLC3 value for the number of days prior.  
+// @param daysPrior Number of days back to get the HLC3 from.
+// @param extraForward Number of extra days forward to include.  Determines the closing value.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns The HLC3 for the number of days prior.
+export HLC3( 
+  simple int daysPrior = 0,
+  simple int extraForward = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    _hlc3(daysPrior, extraForward, spec, res)
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+// Array Helpers /////////////////////////////////
+// Use these when repeated access to the daily data is needed.
+//////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+// @function Gets all the open values for the number of days prior.  
+// @param daysPrior Number of days back to get the open from.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns An array of the previous open values.
+export openArray( 
+  simple int daysPrior = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var result = array.new_float(daysPrior + 1)
+    if Session.isFirstBar(spec, res)
+        array.unshift(result, open[0])
+        array.pop(result)
+    result
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Gets all the close values for the number of days prior.  
+// @param daysPrior Number of days back to get the close from.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns An array of the previous close values.
+export closeArray( 
+  simple int daysPrior = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var result = array.new_float(daysPrior + 1)
+    v = _close(0, spec, res)
+    if Session.isFirstBar(spec, res)
+        array.unshift(result, v)
+        array.pop(result)
+        0
+    else if Session.isIn(spec, res)
+        array.set(result, 0, v)
+        0
+    result
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Gets the highest value for the number of days prior for each day as an array. 
+// @param src The series to use for values. 
+// @param daysPrior Number of days back to get the high from.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns An array of the values.
+export highOfArray( 
+  series float src,
+  simple int daysPrior = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var result = array.new_float(daysPrior + 1)
+    v = _high(src, 0, spec, res)
+    if Session.isFirstBar(spec, res)
+        array.unshift(result, v)
+        array.pop(result)
+        0
+    else if Session.isIn(spec, res)
+        array.set(result, 0, v)
+        0
+    result
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Gets the highest value for the number of days prior for each day as an array. 
+// @param daysPrior Number of days back to get the high from.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns An array of the values.
+export highArray( 
+  simple int daysPrior = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    highOfArray(high, daysPrior, spec, res)  
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Gets the lowest value for the number of days prior for each day as an array. 
+// @param src The series to use for values. 
+// @param daysPrior Number of days back to get the high from.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns An array of the values.
+export lowOfArray( 
+  series float src,
+  simple int daysPrior = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var result = array.new_float(daysPrior + 1)
+    v = _low(src, 0, spec, res)
+    if Session.isFirstBar(spec, res)
+        array.unshift(result, v)
+        array.pop(result)
+        0
+    else if Session.isIn(spec, res)
+        array.set(result, 0, v)
+        0
+    result
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Gets the lowest value for the number of days prior for each day as an array. 
+// @param daysPrior Number of days back to get the high from.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns An array of the values.
+export lowArray( 
+  simple int daysPrior = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    lowOfArray(low, daysPrior, spec, res)    
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Gets the hlc3 value for the number of days prior for each day as an array. 
+// @param daysPrior Number of days back to get the high from.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns An array of the values.
+export hlc3Array( 
+  simple int daysPrior = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var result = array.new_float(daysPrior + 1)
+    v = _hlc3(0, 0, spec, res)
+    if Session.isFirstBar(spec, res)
+        array.unshift(result, v)
+        array.pop(result)
+        0
+    else if Session.isIn(spec, res)
+        array.set(result, 0, v)
+        0
+    result
+//////////////////////////////////////////////////
+
+days = input(1, "Days Prior")
+
+plot(O(days), 'Previous Open', color=color.yellow)
+plot(H(days), 'Previous High', color=color.red, style=plot.style_circles)
+plot(L(days), 'Previous Low', color=color.green, style=plot.style_circles)
+plot(C(days), 'Previous Close', color=color.blue)

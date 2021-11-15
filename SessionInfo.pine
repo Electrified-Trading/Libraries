@@ -1,0 +1,308 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+
+// @version=5
+// @description Utility functions for session specific information like the bar index of the session.
+library('SessionInfo', false)
+
+// Note: The following are already provided by PineScript 5.
+// session.ismarket     https://www.tradingview.com/pine-script-reference/v5/#var_session{dot}ismarket
+// session.ispremarket  https://www.tradingview.com/pine-script-reference/v5/#var_session{dot}ispremarket
+// session.ispostmarket https://www.tradingview.com/pine-script-reference/v5/#var_session{dot}ispostmarket
+
+
+///////////////////////////////////////////////////
+// Session Info ///////////////////////////////////
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns true if the current bar is in the session specification.
+// @param spec session.regular (default), session.extended or other time spec.
+// @returns True if the current is in session; otherwise false.
+export isIn(
+  simple string spec = session.regular,
+  simple string res = timeframe.period) =>
+    not na(time(res, spec))
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns true if the bar is before before the session (default = regular) opens.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = timeframe.period).
+// @returns True if before the session.
+export isBefore(
+  simple string spec = session.regular,
+  simple string res = timeframe.period) =>
+    if not timeframe.isintraday
+        false
+    else
+        var y = year
+        var m = month
+        var d = dayofmonth
+        var bool start = false
+
+        if y != year or m != month or d != dayofmonth
+            y := year
+            m := month
+            d := dayofmonth
+            start := true
+
+        if isIn(spec, res)
+            start := false
+            false
+        else
+            start
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns true if the bar is before before the session (default = regular) opens.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = timeframe.period).
+// @returns True if before the session.
+export isAfter(
+  simple string spec = session.regular,
+  simple string res = timeframe.period) =>
+    if not timeframe.isintraday
+        false
+    else
+        var y = year
+        var m = month
+        var d = dayofmonth
+        var int phase = na
+
+        if y != year or m != month or d != dayofmonth
+            y := year
+            m := month
+            d := dayofmonth
+            phase := 0
+
+        if isIn(spec, res)
+            phase := 1
+            false
+        else
+            phase == 1
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Converts the number of minutes to a length to be used with indicators.
+// @param minutes The number of minutes.
+// @param multiple The length multiplier.
+// @returns math.ceil(minutes * multiple / timeframe.multiplier)
+export minutesToLen(
+  simple int minutes, 
+  simple float multiple = 1) =>
+    math.ceil(minutes * multiple / timeframe.multiplier)
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns the intraday bar index.  May not always map directly to time as a bars can be skipped.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns The integer index of the bar of the session.
+export bar(
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var int notYet = na
+    if timeframe.isdaily
+        0
+    else if not timeframe.isintraday
+        notYet
+    else
+        var barCount = -1
+        barCount += 1
+
+        var y = year
+        var m = month
+        var d = dayofmonth
+        var int firstBar = na
+        t = time(res, spec)
+
+        if na(t) or y != year or m != month or d != dayofmonth
+            y := year
+            m := month
+            d := dayofmonth
+            firstBar := na(t) ? na : barCount
+        else if na(firstBar) and (na(t[1]) and not na(t) or t[1] < t)
+            firstBar := barCount
+
+        barCount - firstBar
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns the number bars in the past to find the first bar of the session of a given day.
+// @param daysPrior The number of days in the past to count the bars.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns The number bars in the past to find the first bar of the session of a given day.
+export firstBarOfDay(
+  simple int daysPrior = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var int notYet = na
+    if daysPrior < 0
+        runtime.error('firstBarOfDay(daysPrior) must be (>=0) at least zero.')
+        notYet
+    else if timeframe.isdaily
+        0
+    else if not timeframe.isintraday
+        notYet
+    else
+        var days = daysPrior + 1
+        var dayRecord = array.new_int()
+        var dayCount = 0
+        var barCount = -1
+        barCount += 1
+
+        var y = year
+        var m = month
+        var d = dayofmonth
+        var int firstBar = na
+        t = time(res, spec)
+
+        if y != year or m != month or d != dayofmonth
+            y := year
+            m := month
+            d := dayofmonth
+            if not na(t)
+                array.push(dayRecord, barCount)
+                dayCount += 1
+                if dayCount > days
+                    array.shift(dayRecord)
+                    dayCount -= 1
+                
+        else if na(t[1]) and not na(t) or t[1] < t
+            array.push(dayRecord, barCount)
+            dayCount += 1
+            if dayCount > days
+                array.shift(dayRecord)
+                dayCount -= 1
+
+        dayCount == 0 ? notYet : barCount - array.get(dayRecord, 0)
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns true if the current bar is the first one of the session.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns True if the current bar is the first one of the session.
+export isFirstBar(
+  simple string spec = session.regular,
+  simple string res = '1440') => bar(spec, res) == 0
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns Returns true if the previous bar was the last of the session.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns True if was the last bar of the session.
+export wasLastBar(
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var bool notYet = na
+    if timeframe.isdaily
+        true
+    else if not timeframe.isintraday
+        notYet
+    else
+        var int b = na
+        bb = bar(spec, res)
+        wasLast = bb < b or na(bb) and not na(b)
+        b := bb
+        wasLast
+///////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Returns maximum (usual) number of bars per day.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns The max (usual) number of bars per day.
+export maxBars(
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var int notYet = na
+    if timeframe.isdaily
+        1
+    else if not timeframe.isintraday
+        notYet
+    else
+        var int max = na
+        var int b = 0
+        var int count = 0
+        b += 1
+        if wasLastBar(spec, res)
+            count += 1
+            if na(max) or b > max
+                max := b
+        if isFirstBar(spec, res)
+            b := 0
+        
+        count > 3 ? max : na
+///////////////////////////////////////////////////   
+
+//////////////////////////////////////////////////
+// @function Returns maximum (usual) number of minutes per day.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns The max (usual) number of minutes per day.
+export maxMinutes(
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    maxBars(spec, res) * timeframe.multiplier
+///////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Returns the number of bars equal to the number of days based upon usual session length.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns The number of bars representing the number of days.
+export daysToBars(
+  simple int days,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var int notYet = na
+    if timeframe.isdaily
+        days
+    else if not timeframe.isintraday
+        notYet
+    else
+        days * maxBars(spec, res)
+///////////////////////////////////////////////////   
+
+///////////////////////////////////////////////////
+// @function Returns the number bars in the past to find the last bar of the session of a given day.
+// @param daysPrior The number of days in the past to count the bars.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns The number bars in the past to find the last bar of the session of a given day.
+export lastBarOfDay(
+  simple int daysPrior = 1,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var int notYet = na
+    if daysPrior < 1
+        runtime.error('lastBarOfDay(daysPrior) must be (>=1) at least one.')
+        notYet
+    else if timeframe.isdaily
+        daysPrior
+    else if not timeframe.isintraday
+        notYet
+    else
+        var dayRecord = array.new_int()
+        var dayCount = 0
+        var barCount = -1
+        barCount += 1
+
+        if wasLastBar(spec, res)
+            array.push(dayRecord, barCount - 1)
+            dayCount += 1
+            if dayCount > daysPrior
+                array.shift(dayRecord)
+                dayCount -= 1
+
+        dayCount == 0 ? notYet : barCount - array.get(dayRecord, 0)
+///////////////////////////////////////////////////
+
+bos = bar()
+plot(bos, 'Bar of the Standard Session', color=color.green, style=plot.style_stepline)
+bose = bar(session.extended)
+plot(bose, 'Bar of the Extended Session', style=plot.style_stepline)

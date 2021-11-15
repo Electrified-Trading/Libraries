@@ -1,0 +1,147 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+
+//@version=5
+
+// @description Helps in determining opening gap severity by measuring the standard deviation of the open minus the previous close.
+library("GapDetection", false)
+import Electrified/SessionInfo/9 as Session
+
+///////////////////////////////////////////////////
+//// Gap Detection ////////////////////////////////
+///////////////////////////////////////////////////
+
+
+//////////////////////////////////////////////////
+// @function Returns today's overnight gap value.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+export today(
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var float value = na
+    var float previousClose = na
+
+    if timeframe.isdaily
+        value := open - close[1]
+    else if not timeframe.isintraday
+        value
+    else 
+        if(Session.wasLastBar(spec, res))
+            previousClose := close[1]
+        if(Session.isFirstBar(spec, res))
+            value := open - previousClose
+        value
+///////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Returns today's overnight gap (% move).
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+export todayPercent(
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var float value = na
+    var float previousClose = na
+
+    c1 = close[1]
+    if timeframe.isdaily
+        value := (open - c1) / c1
+    else if not timeframe.isintraday
+        value
+    else 
+        if(Session.wasLastBar(spec, res))
+            previousClose := c1
+        if(Session.isFirstBar(spec, res))
+            value := (open - previousClose) / previousClose
+        value
+///////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Returns the normal daily standard deviation of the overnight gap value.
+// @param len Number of days back to measure.
+// @param maxDeviation The limit of volatility before considered an outlier.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+export normal(
+  simple int len,
+  simple float maxDeviation = 2,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var delta = array.new_float()
+    var result = array.new_float()
+
+    value = today(spec, res)
+    if(Session.isFirstBar(spec, res))
+        array.push(delta, value)
+
+    if(array.size(delta) > len)
+        array.shift(delta)
+        avg = array.avg(delta)
+        stdev = array.stdev(delta)
+        level = stdev * maxDeviation
+        hi = avg + level
+        lo = avg - level
+        if lo < value or value < hi
+            array.push(result, value)
+        if(array.size(result) > len)
+            array.shift(result)
+
+    array.stdev(result)
+///////////////////////////////////////////////////
+
+// @function Returns the normal daily standard deviation of the overnight gap (% move).
+// @param len Number of days back to measure.
+// @param maxDeviation The limit of volatility before considered an outlier.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+export normalPercent(
+  simple int len,
+  simple float maxDeviation = 2,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    var delta = array.new_float()
+    var result = array.new_float()
+    
+    value = todayPercent(spec, res)
+    if(Session.isFirstBar(spec, res))
+        array.push(delta, value)
+
+    if(array.size(delta) > len)
+        array.shift(delta)
+        avg = array.avg(delta)
+        stdev = array.stdev(delta)
+        level = stdev * maxDeviation
+        hi = avg + level
+        lo = avg - level
+        if lo < value or value < hi
+            array.push(result, value)
+        if(array.size(result) > len)
+            array.shift(result)
+
+    array.stdev(result)
+///////////////////////////////////////////////////   
+
+//////////////////////////////////////////////////
+// @function Returns the severity of the overnight in ratios of the normal standard deviation.
+// @param len Number of days back to measure.
+// @param maxDeviation The limit of volatility before considered an outlier.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+export severity(
+  simple int len,
+  simple float maxDeviation = 2, 
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    todayPercent(spec, res) / normalPercent(len, maxDeviation, spec, res)
+///////////////////////////////////////////////////
+
+hline(+2)
+hline(+1)
+hline(0, linestyle=hline.style_solid)
+hline(-1)
+hline(-2)
+
+s = severity(input.int(50, "Days to Measure", minval=3))
+c = s < 0 ? color.red : color.green
+plot(s, "Gap Severity", c, style=plot.style_areabr)

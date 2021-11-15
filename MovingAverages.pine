@@ -1,0 +1,57 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+
+// @version=5
+// @description Contains utilities for generating moving average values including getting a moving average by name and a function for generating a Volume-Adjusted WMA.
+library('MovingAverages', true)
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// VAWMA = VWMA and WMA combined.
+// Simply put, this attempts to determine the average price per share over time weighted heavier for recent values.
+// Uses triangular algorithm to taper off values in the past (same as WMA does).
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// @function VAWMA = VWMA and WMA combined. Simply put, this attempts to determine the average price per share over time weighted heavier for recent values. Uses a triangular algorithm to taper off values in the past (same as WMA does).
+// @param len The number of bars to measure with.
+// @param src The series to measure from.  Default is 'hlc3'.
+// @param volumeDefault The default value to use when a chart has no (N/A) volume. 
+// @returns The volume adjusted triangular weighted moving average of the series.
+export vawma(
+  simple int len,
+  series float src = hlc3,
+  simple float volumeDefault = na) =>
+    sum = 0.0
+    vol = 0.0
+    for m = 1 to len // m = triangular multiple
+        i = len - m
+        v = volume[i]
+        if(na(v))
+            v := volumeDefault
+        v *= m
+        vol := vol + v
+        sum := sum + src[i] * v
+    sum/vol
+
+SMA = 'SMA', EMA = 'EMA', WMA = 'WMA', VWMA = 'VWMA', VAWMA = 'VAWMA'
+
+// @function Generates a moving average based upon a 'type'.
+// @param type The type of moving average to generate.  Values allowed are: SMA, EMA, WMA, VWMA and VAWMA.
+// @param len The number of bars to measure with.
+// @param src The series to measure from.  Default is 'close'.
+// @returns The moving average series requested.
+export get(
+  simple string type,
+  simple int len,
+  series float src = close) =>
+    switch type
+        WMA => ta.wma(src, len)
+        EMA => ta.ema(src, len)
+        VWMA => ta.vwma(src, len)
+        VAWMA => vawma(len, src)
+        SMA => ta.sma(src, len)
+        =>
+            runtime.error("No matching MA type found.")
+            ta.sma(src, len)
+
+// Demo
+plot(vawma(60), 'VAWMA(60)', color.purple)

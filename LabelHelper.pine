@@ -1,0 +1,111 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+
+// @version=5
+// @description Utility for managing active labels on the chart.
+library('LabelHelper', true)
+import Electrified/Time/1
+
+//////////////////////////////////////////////////
+// @function Refreshes the x position of label.
+// @param lbl The label to update.
+// @param offset A positive value will push label one bar to the right and a negative value to the left.
+// @returns The time value that was used.
+export refreshXPos(
+  label lbl,
+  int offset = 0) =>
+    var barLength = Time.bar()
+    t = time + offset * barLength
+    label.set_x(lbl, t)
+    t
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function For creating a label at the last bar.
+// @param level The value to display the label at.
+// @param txt The text to show on the label.
+// @param labelColor The background color of the label.
+// @param textColor The text color of the label.
+// @param size The size of the text. Default is large.
+// @param textAlign The alignment of the text.  Default is left.
+// @param offset A positive value will push label to the right and a negative to the left.
+// @param tooltip The optional tooltip of the label.
+// @returns The label that was created.
+export create(
+  float level,
+  string txt,
+  color labelColor = color.gray,
+  color textColor = color.white,
+  string size = size.large,
+  string textAlign = text.align_left,
+  int offset = 0,
+  string tooltip = '') =>
+    t = time + offset * Time.bar()
+    label.new(t, level, txt, xloc.bar_time, yloc.price, labelColor, label.style_label_left, textColor, size, textAlign, tooltip)
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function [DEPRECATED use .manage(…) instead] For displaying a label at the last bar.
+// @param level The value to display the label at.
+// @param txt The text to show on the label.
+// @param labelColor The background color of the label.
+// @param textColor The text color of the label.
+// @param size The size of the text. Default is large.
+// @param textAlign The alignment of the text.  Default is left.
+// @param offset A positive value will push label to the right and a negative to the left.
+// @param tooltip The optional tooltip of the label.
+// @returns The label being managed.
+export add(
+  float level,
+  string txt,
+  color labelColor = color.gray,
+  color textColor = color.white,
+  string size = size.large,
+  string textAlign = text.align_left,
+  int offset = 0,
+  string tooltip = '') =>
+    // Create label on the first bar.
+    lbl = create(level, txt, labelColor, textColor, size, textAlign, offset, tooltip)
+    label.delete(lbl[1])
+    lbl
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function For displaying a label at the last bar.
+// @param src The existing label to manage.
+// @param txt The text to show on the label.
+// @param labelColor The background color of the label.
+// @param textColor The text color of the label.
+// @param size The size of the text. Default is large.
+// @param textAlign The alignment of the text.  Default is left.
+// @param offset A positive value will push label to the right and a negative to the left.
+// @param tooltip The optional tooltip of the label.
+// @returns The active label (or 'na' if no text was provided).
+export manage(
+  series label src,
+  float level,
+  string txt,
+  color labelColor = color.gray,
+  color textColor = color.white,
+  string size = size.large,
+  string textAlign = text.align_left,
+  int offset = 0,
+  string tooltip = '') =>
+
+    label result = na
+    if not na(src) // possible difference duing live session.
+        label.delete(src)    
+    if not na(src[0])
+        label.delete(src[0])
+    if not na(src[1])
+        label.delete(src[1])
+
+    if not na(txt) and txt != ""
+        result := create(level, txt, labelColor, textColor, size, textAlign, offset, tooltip)
+
+    result
+//////////////////////////////////////////////////
+
+// Demo
+var label lbl = na
+lbl := manage(lbl, close, "CLOSE", offset = 1, tooltip = "This is\nthe close.")

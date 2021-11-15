@@ -1,0 +1,76 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified
+
+//@version=5
+library("DailyDeviation", overlay=true)
+import Electrified/DailyLevels/9 as Daily
+
+export hlcDeltaArrays(
+  simple int days,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    Dopen  = Daily.openArray(days, spec, res)
+    Dhigh  = Daily.highArray(days, spec, res)
+    Dlow   = Daily.lowArray(days, spec, res)
+    Dclose = Daily.closeArray(days, spec, res)    
+    OH = array.new_float(days + 1)
+    OL = array.new_float(days + 1)
+    OC = array.new_float(days + 1)
+
+    int d = 0
+    while d < days
+        d += 1
+        o = array.get(Dopen, d)
+        h = array.get(Dhigh, d)
+        l = array.get(Dlow, d)
+        c = array.get(Dclose, d)
+        array.set(OH, d, h - o)
+        array.set(OL, d, o - l)
+        array.set(OC, d, c - o)
+
+    [OH, OL, OC]  
+
+
+days = input.int(50, "Days to Measure Deviation")
+
+oD = Daily.O()
+[OH, OL, OC] = hlcDeltaArrays(days)
+
+OHbase = oD +  array.avg(OH)
+Hstdev = array.stdev(OH)
+cHb = color.blue
+cH = color.new(cHb, 100)
+//h0 = plot(OHbase, "H0")
+h1 = plot(OHbase + Hstdev, "H1", cH)
+h2 = plot(OHbase + Hstdev * 2, "H2", cH)
+h3 = plot(OHbase + Hstdev * 3, "H3", cH)
+h4 = plot(OHbase + Hstdev * 4, "H4", cH)
+
+OLbase = oD - array.avg(OL)
+Lstdev = array.stdev(OL)
+cLb = color.yellow
+cL = color.new(cLb, 100)
+//l0 = plot(OLbase, "L0")
+l1 = plot(OLbase - Lstdev, "L1", cL)
+l2 = plot(OLbase - Lstdev * 2, "L2", cL)
+l3 = plot(OLbase - Lstdev * 3, "L3", cL)
+l4 = plot(OLbase - Lstdev * 4, "L4", cL)
+
+Cstdev = array.stdev(OC)
+cC = color.new(color.gray, 100)
+cH1 = plot(oD + Cstdev, "C1+", cC)
+cL1 = plot(oD - Cstdev, "C1-", cC)
+// l3 = plot(OLbase - Lstdev * 3, "L3", cC)
+// l4 = plot(OLbase - Lstdev * 4, "L4", cC)
+
+fill(cH1, h1, color.new(cHb, 90))
+fill(cL1, l1, color.new(cLb, 90))
+
+fill(h1, h2, color.new(cHb, 80))
+fill(h2, h3, color.new(cHb, 70))
+fill(h3, h4, color.new(cHb, 90))
+
+fill(l1, l2, color.new(cLb, 80))
+fill(l2, l3, color.new(cLb, 70))
+fill(l3, l4, color.new(cLb, 90))
+

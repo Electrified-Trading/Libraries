@@ -1,0 +1,126 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+
+// @version=5
+// @description Functions for determining if volatility (true range) is within or exceeds normal.
+library('Volatility')
+import Electrified/MovingAverages/3 as MA
+import Electrified/SessionInfo/9 as Session
+import Electrified/GapDetection/5 as Gap
+
+// The "True Range" (ta.tr) is used for measuring volatility.
+// Values are normalized by the volume adjusted weighted moving average (VAWMA) to be more like percent moves than price.
+
+//////////////////////////////////////////////////
+// @function Returns the normal upper range of volatility and the normal gap value.
+// @param len Number of bars to measure volatility.
+// @param maxDeviation The limit of volatility before considered an outlier.
+// @param level The amount of standard deviation after cleaning outliers to be considered within normal.
+// @param gapDays The number of days in the past to measure overnight gap volaility.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @param volatility The value to use as a volatility measure.  Default is (ta.tr) the "True Range".
+// @returns [atr + stdev * level, Gap.normal(gapDays, spec, res)]
+export normalWithGap(
+  simple int len,
+  simple float maxDeviation = 3,
+  simple float level = 1,
+  simple int gapDays = 50,
+  simple string spec = session.regular,
+  simple string res = '1440',
+  series float volatility = ta.tr) =>
+    var values = array.new_float()
+
+    vawma = MA.vawma(len)
+    tr = volatility / vawma // VAWMA is used to normalize the values to a price paid per share.  Closer to % than price.
+    stdRaw = ta.stdev(tr, len) 
+    avgRaw = ta.sma(tr, len)   
+
+    if tr < avgRaw + maxDeviation * stdRaw
+        array.push(values, tr)
+    if array.size(values)>len
+        array.shift(values)
+
+    atr = array.avg(values)
+    stdev = array.stdev(values)
+
+    latest = atr + stdev * level
+    [latest * vawma, Gap.normal(gapDays, 2, spec, res) * level]
+///////////////////////////////////////////////////  
+
+//////////////////////////////////////////////////
+// @function Returns the normal upper range of volatility. Compensates for overnight gaps within a regular session.
+// @param len Number of bars to measure volatility.
+// @param maxDeviation The limit of volatility before considered an outlier.
+// @param level The amount of standard deviation after cleaning outliers to be considered within normal.
+// @param gapDays The number of days in the past to measure overnight gap volaility.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @param volatility The value to use as a volatility measure.  Default is (ta.tr) the "True Range".
+export normal(
+  simple int len,
+  simple float maxDeviation = 3,
+  simple float level = 1,
+  simple int gapDays = 50,
+  simple string spec = session.regular,
+  simple string res = '1440',
+  series float volatility = ta.tr) =>
+    [n, g] = normalWithGap(len, maxDeviation, level, gapDays, spec, res, volatility)
+    syminfo.session == session.regular and Session.isFirstBar() ? g : n
+///////////////////////////////////////////////////   
+
+//////////////////////////////////////////////////
+// @function Returns true if the volatility (true range) is within normal levels. Compensates for overnight gaps within a regular session.
+// @param len Number of bars to measure volatility.
+// @param maxDeviation The limit of volatility before considered an outlier.
+// @param level The amount of standard deviation after cleaning outliers to be considered within normal.
+// @param gapDays The number of days in the past to measure overnight gap volaility.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @param volatility The value to use as a volatility measure.  Default is (ta.tr) the "True Range".
+export isNormal(
+  simple int len,
+  simple float maxDeviation = 3,
+  simple float level = 1,
+  simple int gapDays = 50,
+  simple string spec = session.regular,
+  simple string res = '1440',
+  series float volatility = ta.tr) =>
+    volatility < normal(len, maxDeviation, level, gapDays, spec, res)
+///////////////////////////////////////////////////   
+
+//////////////////////////////////////////////////
+// @function Returns ratio of the current value to the normal value. Compensates for overnight gaps within a regular session.
+// @param len Number of bars to measure volatility.
+// @param maxDeviation The limit of volatility before considered an outlier.
+// @param level The amount of standard deviation after cleaning outliers to be considered within normal.
+// @param gapDays The number of days in the past to measure overnight gap volaility.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @param volatility The value to use as a volatility measure.  Default is (ta.tr) the "True Range".
+export severity(
+  simple int len,
+  simple float maxDeviation = 3,
+  simple float level = 1,
+  simple int gapDays = 50,
+  simple string spec = session.regular,
+  simple string res = '1440',
+  series float volatility = ta.tr) =>
+    volatility / normal(len, maxDeviation, level, gapDays, spec, res)
+///////////////////////////////////////////////////   
+
+
+/////////////////////////////////////////////////// 
+// Example //////////////////////////////////////// 
+/////////////////////////////////////////////////// 
+
+days = input.int(50, 'Days to Measure', tooltip='The number of days to use in measuring volatility.')
+maxDev = input.float(2, 'Max Deviation', minval=1, tooltip='The limit of volatility before considered an outlier.')
+level = input.float(2, 'Standard Deviation Level', minval=1, tooltip='The amount of standard deviation after cleaning outliers to be considered within normal.')
+
+int len = days * 390 / timeframe.multiplier
+
+volatility = ta.tr
+normalVol = normal(len, maxDev, level, days)
+plot(volatility, 'Volatility', color.red)
+plot(normalVol, 'Volatility Normal', color.green)
