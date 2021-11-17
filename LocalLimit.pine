@@ -1,0 +1,87 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+
+// @version=5
+// @description Calculates the local upper or local lower limit for a given series.  Applying multiple passes produces what appears like support or resistance levels.
+library('LocalLimit', true)
+
+///////////////////////////////////////////////////
+// @function Produces the recent local upper limit for a given series.
+// @param src The source series to derive from.
+// @param padding Gives some extra room when lowering the level.
+export upper(
+  series float src,
+  float padding = 0) =>
+    value = src[0]
+    valuePrev = src[1]
+    var limit = value
+    var int trend = 0
+    var int phase = 0
+
+    phase := if value > limit
+        trend := +1
+        limit := src
+        0
+    else
+        switch phase
+            0 => 1
+            1 => value > valuePrev ? 2 : 1
+            2 =>
+                if value < valuePrev
+                    trend := -1
+                    limit := math.min(limit, valuePrev + padding)
+                    0
+                else
+                    2    
+    limit
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Produces the recent local lower limit for a given series.
+// @param src The source series to derive from.
+// @param padding Gives some extra room when raising the level.
+export lower(
+  series float src,
+  float padding = 0) =>
+    value = src[0]
+    valuePrev = src[1]
+    var limit = value
+    var int trend = 0
+    var int phase = 0
+
+    phase := if value < limit
+        trend := -1
+        limit := src
+        0
+    else
+        switch phase
+            0 => 1
+            1 => value < valuePrev ? 2 : 1
+            2 =>
+                if value > valuePrev
+                    trend := +1
+                    limit := math.max(limit, valuePrev - padding)
+                    0
+                else
+                    2    
+    limit    
+///////////////////////////////////////////////////
+
+hi0 = upper(high)
+hi1 = upper(hi0, 0.1)
+hi2 = upper(hi1, 0.5)
+
+lo0 = lower(low)
+lo1 = lower(lo0, 0.1)
+lo2 = lower(lo1, 0.5)
+
+hColor = color.yellow
+lColor = color.blue
+
+plot(hi0, "H0", hColor, 1)
+plot(hi1, "H1", hColor, 2)
+plot(hi2, "H2", hColor, 3)
+
+plot(lo0, "L0", lColor, 1)
+plot(lo1, "L1", lColor, 2)
+plot(lo2, "L3", lColor, 3)

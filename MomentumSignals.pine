@@ -4,8 +4,7 @@
 // @version=5
 // @description Contains utilities varying algorithms for detecting key changes in momentum.  Note: Momentum is not velocity and should be used in conjunction with other indicators.  A change in momentum does not mean a reversal of velocity or trend.
 library('MomentumSignals')
-import Electrified/MovingAverages/3 as MA
-import Electrified/Momentum/2
+import Electrified/Momentum/3
 
 quantize(float value, simple int up = 1, simple int dn = -1) =>
     na(value) ? na : value > 0 ? up : value < 0 ? dn : 0
@@ -125,7 +124,7 @@ export special(
 // @param kmode The type of moving average to generate. Values allowed are: SMA, EMA, WMA, VWMA and VAWMA.
 // @param upper The upper band of the range.
 // @param lower The lower band of the range.
-// @returns [K, D]
+// @returns [signal, stage] Where stage is +1 for over 50, -1 under 50, +2 for overbought, and -2 for oversold.
 export stochRSI(
   simple int smoothK,
   simple int smoothD,
@@ -153,7 +152,7 @@ export stochRSI(
     d_c = quantize(ta.change(d))
 
     // Avoid noisy alignment...
-    if k_c != d_c or k_c != quantize(k - d)
+    signal = if k_c != d_c or k_c != quantize(k - d)
         0
     else
         if stage_c > 0 and stage == -1
@@ -166,6 +165,8 @@ export stochRSI(
             k_c > 0 ? 0 : k_c
         else
             k_c
+    
+    [signal, stage]
 ///////////////////////////////////////////////////
 
 
