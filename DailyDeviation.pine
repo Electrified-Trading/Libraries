@@ -5,10 +5,6 @@
 library("DailyDeviation", overlay=true)
 import Electrified/DailyLevels/9 as Daily
 
-blah(int x,
- foo) =>
-   10
-
 export hlcDeltaArrays(
   simple int days,
   simple string spec = session.regular,
