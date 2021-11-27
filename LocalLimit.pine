@@ -29,7 +29,7 @@ export upper(
             2 =>
                 if value < valuePrev
                     trend := -1
-                    limit := math.min(limit, valuePrev + padding)
+                    limit := math.min(limit, valuePrev + nz(padding))
                     0
                 else
                     2    
@@ -60,7 +60,7 @@ export lower(
             2 =>
                 if value > valuePrev
                     trend := +1
-                    limit := math.max(limit, valuePrev - padding)
+                    limit := math.max(limit, valuePrev - nz(padding))
                     0
                 else
                     2    

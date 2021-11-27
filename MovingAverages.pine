@@ -11,6 +11,7 @@ library('MovingAverages', true)
 // Uses triangular algorithm to taper off values in the past (same as WMA does).
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+///////////////////////////////////////////////////
 // @function VAWMA = VWMA and WMA combined. Simply put, this attempts to determine the average price per share over time weighted heavier for recent values. Uses a triangular algorithm to taper off values in the past (same as WMA does).
 // @param len The number of bars to measure with.
 // @param src The series to measure from.  Default is 'hlc3'.
@@ -31,9 +32,41 @@ export vawma(
         vol := vol + v
         sum := sum + src[i] * v
     sum/vol
+///////////////////////////////////////////////////
 
-SMA = 'SMA', EMA = 'EMA', WMA = 'WMA', VWMA = 'VWMA', VAWMA = 'VAWMA'
+///////////////////////////////////////////////////
+// @function Coefficient Moving Avereage (CMA) is a variation of a moving average that can simulate SMA or WMA with the advantage of previous data.
+// @param n The number of bars to measure with.
+// @param D The series to measure from.  Default is 'close'.
+// @param C The coefficient to use when averaging. 0 behaves like SMA, 1 behaves like WMA.
+// @param compound When true (default is false) will use a compounding method for weighting the average.
+export cma(
+  simple int n,
+  series float D = close,
+  simple float C = 1,
+  simple bool compound = false) =>
+    var float result = na
+    sum = 0.0
+    weight = 1.0
+    weightTotal = 0.0
+    for m = 1 to n
+        sum := sum + D[n - m] * weight
+        weightTotal += weight
+        if compound
+            weight *= 1 + C
+        else
+            weight += C
 
+    prev = result[n]
+    if na(prev)
+        result := sum / weightTotal
+    else
+        result := (prev + sum) / (weightTotal + 1)
+///////////////////////////////////////////////////
+
+SMA = 'SMA', EMA = 'EMA', WMA = 'WMA', CMA = 'CMA', VWMA = 'VWMA', VAWMA = 'VAWMA'
+
+///////////////////////////////////////////////////
 // @function Generates a moving average based upon a 'type'.
 // @param type The type of moving average to generate.  Values allowed are: SMA, EMA, WMA, VWMA and VAWMA.
 // @param len The number of bars to measure with.
@@ -48,10 +81,12 @@ export get(
         EMA => ta.ema(src, len)
         VWMA => ta.vwma(src, len)
         VAWMA => vawma(len, src)
+        CMA => cma(len, src)
         SMA => ta.sma(src, len)
         =>
             runtime.error("No matching MA type found.")
             ta.sma(src, len)
+///////////////////////////////////////////////////
 
 // Demo
 plot(vawma(60), 'VAWMA(60)', color.purple)
