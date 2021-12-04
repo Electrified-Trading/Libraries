@@ -1,7 +1,7 @@
 // This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © Electrified
 
-//@version=5
+// @version=5
 // @description Utilities for measuring time.
 library("Time")
 
@@ -20,5 +20,12 @@ export bar() =>
         1000 * 60
     var value = m * timeframe.multiplier
     value
+
+// @function Gets the start of the day for the provided time value.
+// @param datetime The time of day to acquire the date from.
+// @returns The number of milliseconds representing the date for the given value.
+export date(float datetime = time) =>
+    timestamp(year(datetime), month(datetime), dayofmonth(datetime))
+
 
 plot(bar())
