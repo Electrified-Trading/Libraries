@@ -22,10 +22,15 @@ export bar() =>
     value
 
 // @function Gets the start of the day for the provided time value.
-// @param datetime The time of day to acquire the date from.
+// @param datetime The date/time to acquire the date from.
 // @returns The number of milliseconds representing the date for the given value.
-export date(float datetime = time) =>
+export date(int datetime = time) =>
     timestamp(year(datetime), month(datetime), dayofmonth(datetime))
 
+// @function Gets milliseconds from the start of the day.
+// @param datetime The date/time to acquire the time of day from.
+// @returns The number of milliseconds representing time of day.
+export timeOfDay(int datetime = time) =>
+    datetime - date(datetime)
 
 plot(bar())
