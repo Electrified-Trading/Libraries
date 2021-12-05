@@ -1,0 +1,148 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+
+// @version=5
+// @description Contains utilities for generating averages from arrays.  Useful for manipulated or cleaned data.
+library('Averages', true)
+
+
+///////////////////////////////////////////////////
+// @function Calculates the triangular weighted average of a set of values where the last value has the highest weight.
+// @param src The array to derive the average from.
+// @param startingWeight The weight to begin with when calculating the average.  Higher numbers will decrease the bias.
+export triangular(
+  float[] src,
+  simple int startingWeight = 1) =>
+    var float notAvailable = na
+    len = array.size(src)
+    if len == 0
+        notAvailable
+    else
+        sum = 0.0
+        total = 0
+        for i = 0 to len - 1
+            s = array.get(src, i)
+            if not na(s)
+                m = i + startingWeight // triangular multiple
+                total += m
+                sum += s * m
+        total == 0 ? na : sum/total
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Calculates the weighted average of a set of values.
+// @param src The array to derive the average from.
+// @param weights The array containing the weights for the source.
+// @param weightDefault The default value to use when a weight is NA. 
+export weighted(
+  float[] src,
+  float[] weights,
+  simple float weightDefault = na) =>
+    var float notAvailable = na
+    len = array.size(src)
+    if len == 0
+        notAvailable
+    else if len > array.size(weights)
+        runtime.error("Weight array is shorter than the source.")
+        notAvailable    
+    else
+        sum = 0.0
+        total = 0.0
+        for i = 0 to len - 1
+            s = array.get(src, i)
+            if not na(s)
+                m = array.get(weights, i)
+                if na(m) and not na(weightDefault)
+                    m := weightDefault
+                if not na(m)
+                    total += m
+                    sum += s * m
+        total == 0 ? na : sum/total
+///////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////
+// @function Calculates the weighted average of a set of values where the last value has the highest triangular multiple.
+// @param src The array to derive the average from.
+// @param weights The array containing the weights for the source.
+// @param startingMultiple The multiple to begin with when calculating the average.  Higher numbers will decrease the bias.
+export triangularWeighted(
+  float[] src,
+  float[] weights,
+  simple float weightDefault = na,
+  simple int startingMultiple = 1) =>
+    var float notAvailable = na
+    len = array.size(src)
+    if len == 0
+        notAvailable
+    else if len > array.size(weights)
+        runtime.error("Weight array is shorter than the source.")
+        notAvailable    
+    else
+        sum = 0.0
+        total = 0.0    
+        for i = 0 to len - 1
+            s = array.get(src, i)
+            if not na(s)
+                w = array.get(weights, i)
+                if na(w) and not na(weightDefault)
+                    w := weightDefault
+                if not na(w)
+                    m = i + startingMultiple // triangular multiple
+                    wm = w * m
+                    total += wm
+                    sum += s * wm
+        total == 0 ? na : sum/total
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Calculates the exponential average of a set of values where the last value has the highest weight.
+// @param src The array to derive the average from.
+export exponential(float[] src) =>
+    var float notAvailable = na
+    len = array.size(src)
+    if len == 0
+        notAvailable
+    else    
+        float alpha = 2 / (len + 1)
+        float a1 = 1 - alpha
+        float ema = na
+        for i = 0 to len - 1
+            s = array.get(src, i)
+            if not na(s)
+                ema := alpha * s + a1 * nz(ema)
+        ema
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Creates an array from the provided series (oldest to newest).
+// @param src The array to derive from.
+// @param len The target length of the array.
+// @param omitNA If true, NA values will not be added to the array and the resultant array may be shorter than the target length.
+export arrayFrom(
+  series float src,
+  simple int len,
+  simple bool omitNA = false) =>
+    if omitNA
+        a = array.new_float()
+        last = len - 1
+        for i = 0 to last
+            s = src[last - i]
+            if not na(s)
+                array.push(a, s)  
+        a  
+    else
+        a = array.new_float(len)
+        last = len - 1
+        for i = 0 to last
+            array.set(a, i, src[last - i])
+        a
+///////////////////////////////////////////////////
+
+
+// Demo
+hlc3Array = arrayFrom(hlc3, 60)
+volArray = arrayFrom(volume, 60)
+vawma = triangularWeighted(hlc3Array, volArray)
+
+plot(vawma, 'VAWMA(60)', color.purple)
