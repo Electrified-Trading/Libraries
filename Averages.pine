@@ -110,7 +110,7 @@ export exponential(float[] src) =>
         for i = 0 to len - 1
             s = array.get(src, i)
             if not na(s)
-                ema := alpha * s + a1 * nz(ema)
+                ema := alpha * s + a1 * nz(ema[1])
         ema
 ///////////////////////////////////////////////////
 
