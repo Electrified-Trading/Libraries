@@ -123,20 +123,12 @@ export arrayFrom(
   series float src,
   simple int len,
   simple bool omitNA = false) =>
-    if omitNA
-        a = array.new_float()
-        last = len - 1
-        for i = 0 to last
-            s = src[last - i]
-            if not na(s)
-                array.push(a, s)  
-        a  
-    else
-        a = array.new_float(len)
-        last = len - 1
-        for i = 0 to last
-            array.set(a, i, src[last - i])
-        a
+    var a = omitNA ? array.new_float() : array.new_float(len, na)
+    if not omitNA or not na(src)
+        array.push(a, src)
+    if not omitNA or array.size(a) > len
+        array.shift(a)
+    a
 ///////////////////////////////////////////////////
 
 
