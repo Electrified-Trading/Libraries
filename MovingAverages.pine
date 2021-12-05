@@ -105,11 +105,8 @@ export ema(
         float alpha = 2 / (len + 1)
         float a1 = 1 - alpha
         float ema = na
-        last = len - 1
-        for i = 0 to last
-            s = src[last - i]
-            if not na(s)
-                ema := alpha * s + a1 * nz(ema[1])
+        if not na(src)
+            ema := alpha * src + a1 * nz(ema[1])
         ema
 ///////////////////////////////////////////////////
 
