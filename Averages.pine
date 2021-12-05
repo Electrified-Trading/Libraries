@@ -103,14 +103,21 @@ export exponential(float[] src) =>
     len = array.size(src)
     if len == 0
         notAvailable
-    else    
+    else
+        var float emaPrev = na
+        var float s = na
         float alpha = 2 / (len + 1)
         float a1 = 1 - alpha
-        float ema = na
+        ema = emaPrev
+        
         for i = 0 to len - 1
-            s = array.get(src, i)
-            if not na(s)
-                ema := alpha * s + a1 * nz(ema[1])
+            v = array.get(src, i)
+            if not na(v)
+                s := v
+            ema := alpha * s + a1 * nz(ema)
+            if i == 0
+                emaPrev := ema
+
         ema
 ///////////////////////////////////////////////////
 
@@ -133,8 +140,10 @@ export arrayFrom(
 
 
 // Demo
+ema = exponential(arrayFrom(close, 60))
 hlc3Array = arrayFrom(hlc3, 60)
 volArray = arrayFrom(volume, 60)
 vawma = triangularWeighted(hlc3Array, volArray)
 
-plot(vawma, 'VAWMA(60)', color.purple)
+plot(ema, 'ema(60)', color.red)
+plot(vawma, 'vawma(60)', color.purple)
