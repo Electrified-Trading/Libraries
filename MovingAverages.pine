@@ -20,18 +20,22 @@ library('MovingAverages', true)
 export vawma(
   simple int len,
   series float src = hlc3,
-  simple float volumeDefault = na) =>
+  simple float volumeDefault = na,
+  simple int startingWeight = 1) =>
     sum = 0.0
     vol = 0.0
-    for m = 1 to len // m = triangular multiple
-        i = len - m
+    last = len - 1
+    for i = 0 to last
+        s = src[i]
         v = volume[i]
-        if(na(v))
+        if na(v) and not na(volumeDefault)
             v := volumeDefault
-        v *= m
-        vol := vol + v
-        sum := sum + src[i] * v
-    sum/vol
+        if not na(s) and not na(v)
+            m = last - i + startingWeight
+            v *= m
+            vol += v
+            sum += s * v
+    vol == 0 ? na : sum/vol
 ///////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////
