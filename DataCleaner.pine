@@ -16,10 +16,26 @@ export outlierLevel(
   simple int len,
   simple float level)=>
     if level == 0
-        runtime.error('Passing a level of (0) zero to "outlierLevel" is simply the average.')
+        runtime.error('Passing a level of (0) zero to "level" is simply the average.')
     avg = ta.sma(src, len)
     std = ta.stdev(src, len)
     avg + std * level
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Returns only values that are within the maximum deviation.
+// @param src The series to filter results from.
+// @param len The The number of bars to measure. 
+// @param maxDeviation The positive or negative multiple of the standard deviation to apply to the average. A positive number will be the upper boundary and a negative number will be the lower boundary. 
+export naOutliers(
+  series float src,
+  simple int len,
+  simple float maxDeviation = 4)=>
+    if maxDeviation == 0
+        runtime.error('Passing a level of (0) zero to "maxDeviation" is simply the average.')
+    avg = ta.sma(src, len)
+    dev = ta.stdev(src, len) * maxDeviation
+    src > avg + dev or src < avg - dev ? na : src
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////

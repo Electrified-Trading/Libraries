@@ -6,7 +6,7 @@
 library("DailyDeviation")
 import Electrified/SessionInfo/10 as Session
 import Electrified/DailyLevels/9 as Daily
-import Electrified/DataCleaner/2 as Data
+import Electrified/DataCleaner/5 as Data
 
 //////////////////////////////////////////////////
 // @function Returns a set of arrays representing the daily deviation of price for a given number of days.
