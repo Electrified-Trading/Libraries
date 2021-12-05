@@ -81,18 +81,21 @@ export clean(
 export cleanArray(
   float[] src,
   simple float maxDeviation) =>
-    avg = array.avg(src)
-    stdev = array.stdev(src)
-    cleaned = array.new_float()
-    last = array.size(src) - 1
-    level = stdev * maxDeviation
-    hi = avg + level
-    lo = avg - level
-    for i = 0 to last
-        v = array.get(src, i)
-        if lo < v and v < hi
-            array.push(cleaned, v)
-    cleaned 
+    if array.size(src)==0
+        src
+    else
+        avg = array.avg(src)
+        stdev = array.stdev(src)
+        cleaned = array.new_float()
+        last = array.size(src) - 1
+        level = stdev * maxDeviation
+        hi = avg + level
+        lo = avg - level
+        for i = 0 to last
+            v = array.get(src, i)
+            if lo < v and v < hi
+                array.push(cleaned, v)
+        cleaned 
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
