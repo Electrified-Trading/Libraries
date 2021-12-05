@@ -5,6 +5,18 @@
 // @description Contains utilities for generating moving average values including getting a moving average by name and a function for generating a Volume-Adjusted WMA.
 library('MovingAverages', true)
 
+isLenInvalid(simple int len, simple string name = 'len') =>
+    if na(len)
+        runtime.error("The '"+name+"' param cannot be NA.")
+        true
+    else if len < 0
+        runtime.error("The '"+name+"' param cannot be negative.") 
+        true       
+    else if len == 0
+        true
+    else
+        false
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // VAWMA = VWMA and WMA combined.
 // Simply put, this attempts to determine the average price per share over time weighted heavier for recent values.
@@ -22,20 +34,24 @@ export vawma(
   series float src = hlc3,
   simple float volumeDefault = na,
   simple int startingWeight = 1) =>
-    sum = 0.0
-    vol = 0.0
-    last = len - 1
-    for i = 0 to last
-        s = src[i]
-        v = volume[i]
-        if na(v) and not na(volumeDefault)
-            v := volumeDefault
-        if not na(s) and not na(v)
-            m = last - i + startingWeight
-            v *= m
-            vol += v
-            sum += s * v
-    vol == 0 ? na : sum/vol
+    var float notAvailable = na
+    if isLenInvalid(len)
+        notAvailable
+    else  
+        sum = 0.0
+        vol = 0.0
+        last = len - 1
+        for i = 0 to last
+            s = src[i]
+            v = volume[i]
+            if na(v) and not na(volumeDefault)
+                v := volumeDefault
+            if not na(s) and not na(v)
+                m = last - i + startingWeight
+                v *= m
+                vol += v
+                sum += s * v
+        vol == 0 ? na : sum/vol
 ///////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////
@@ -49,23 +65,104 @@ export cma(
   series float D = close,
   simple float C = 1,
   simple bool compound = false) =>
-    var float result = na
-    sum = 0.0
-    weight = 1.0
-    weightTotal = 0.0
-    for m = 1 to n
-        sum := sum + D[n - m] * weight
-        weightTotal += weight
-        if compound
-            weight *= 1 + C
-        else
-            weight += C
+    var float notAvailable = na
+    if isLenInvalid(n, 'n')
+        notAvailable
+    else 
+        var float result = na
+        sum = 0.0
+        weight = 1.0
+        weightTotal = 0.0
+        for m = 1 to n
+            s = D[n - m]
+            if not na(s)
+                sum := sum + s * weight
+                weightTotal += weight
+                if compound
+                    weight *= 1 + C
+                else
+                    weight += C
 
-    prev = result[n]
-    if na(prev)
-        result := sum / weightTotal
+        prev = result[n]
+        if na(prev)
+            result := sum / weightTotal
+        else
+            result := (prev + sum) / (weightTotal + 1)
+///////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////
+// @function Same as ta.ema(src,len) but properly ignores NA values.
+// @param len The number of samples to derive the average from.
+// @param src The series to measure from.  Default is 'close'.
+export ema(
+  simple int len,
+  series float src = close) =>
+    var float notAvailable = na
+    if isLenInvalid(len)
+        notAvailable
+    else 
+        float alpha = 2 / (len + 1)
+        float a1 = 1 - alpha
+        float ema = na
+        last = len - 1
+        for i = 0 to last
+            s = src[last - i]
+            if not na(s)
+                ema := alpha * s + a1 * nz(ema[1])
+        ema
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Same as ta.wma(src,len) but properly ignores NA values.
+// @param len The number of samples to derive the average from.
+// @param src The series to measure from.  Default is 'close'.
+// @param startingWeight The weight to begin with when calculating the average.  Higher numbers will decrease the bias.
+export wma(
+  simple int len,
+  series float src = close,
+  simple int startingWeight = 1) =>
+    var float notAvailable = na
+    if isLenInvalid(len)
+        notAvailable
     else
-        result := (prev + sum) / (weightTotal + 1)
+        sum = 0.0
+        total = 0
+        last = len - 1
+        for i = 0 to last
+            s = src[i]
+            if not na(s)
+                m = last - i + startingWeight // triangular multiple
+                total += m
+                sum += s * m
+        total == 0 ? na : sum/total
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Same as ta.vwma(src,len) but properly ignores NA values.
+// @param len The number of bars to measure with.
+// @param src The series to measure from.  Default is 'hlc3'.
+// @param volumeDefault The default value to use when a chart has no (N/A) volume. 
+export vwma(
+  simple int len,
+  series float src = close,
+  simple float volumeDefault = na) =>
+    var float notAvailable = na
+    if isLenInvalid(len)
+        notAvailable
+    else
+        sum = 0.0
+        vol = 0.0
+        last = len - 1
+        for i = 0 to last
+            s = src[i]
+            v = volume[i]
+            if na(v) and not na(volumeDefault)
+                v := volumeDefault
+            if not na(s) and not na(v)
+                vol += v
+                sum += s * v
+        vol == 0 ? na : sum/vol
 ///////////////////////////////////////////////////
 
 SMA = 'SMA', EMA = 'EMA', WMA = 'WMA', CMA = 'CMA', VWMA = 'VWMA', VAWMA = 'VAWMA'
@@ -81,9 +178,9 @@ export get(
   simple int len,
   series float src = close) =>
     switch type
-        WMA => ta.wma(src, len)
-        EMA => ta.ema(src, len)
-        VWMA => ta.vwma(src, len)
+        WMA => wma(len, src)
+        EMA => ema(len, src)
+        VWMA => vwma(len, src)
         VAWMA => vawma(len, src)
         CMA => cma(len, src)
         SMA => ta.sma(src, len)
@@ -93,4 +190,7 @@ export get(
 ///////////////////////////////////////////////////
 
 // Demo
-plot(vawma(60), 'VAWMA(60)', color.purple)
+plot(ema(20), 'ema(20)', color.red)
+plot(wma(20), 'wma(20)', color.yellow)
+plot(vwma(20), 'vawma(20)', color.blue)
+plot(vawma(20), 'vawma(20)', color.purple)
