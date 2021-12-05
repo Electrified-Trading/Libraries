@@ -102,12 +102,13 @@ export ema(
     if isLenInvalid(len)
         notAvailable
     else 
-        float alpha = 2 / (len + 1)
-        float a1 = 1 - alpha
-        float ema = na
+        var float alpha = 2 / (len + 1)
+        var float a1 = 1 - alpha
+        var float s = na
+        var float ema = na
         if not na(src)
-            ema := alpha * src + a1 * nz(ema[1])
-        ema
+            s := src
+        ema := alpha * s + a1 * nz(ema)
 ///////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////
@@ -155,10 +156,13 @@ export vwma(
         v = volume
         if na(v) and not na(volumeDefault)
             v := volumeDefault
+
         if not na(src) and not na(v)
             vol += v
             datum := src * v
             sum += datum
+        else
+            v := na
 
         vStart = v[len]
         dStart = datum[len]
@@ -197,5 +201,5 @@ export get(
 // Demo
 plot(ema(20), 'ema(20)', color.red)
 plot(wma(20), 'wma(20)', color.yellow)
-plot(vwma(20), 'vawma(20)', color.blue)
+plot(vwma(20), 'vwma(20)', color.blue)
 plot(vawma(20), 'vawma(20)', color.purple)
