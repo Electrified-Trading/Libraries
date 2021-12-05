@@ -9,7 +9,7 @@ import Electrified/DailyLevels/9 as Daily
 import Electrified/DataCleaner/2 as Data
 
 //////////////////////////////////////////////////
-// @function Retuns a set of arrays representing the daily deviation of price for a given number of days.
+// @function Returns a set of arrays representing the daily deviation of price for a given number of days.
 // @param daysPrior Number of days back to get the close from.
 // @param maxDeviation Maximum deviation before a value is considered an outlier. A value of 0 will not filter results.
 // @param spec session.regular (default), session.extended or other time spec.
@@ -46,7 +46,7 @@ export hlcDeltaArrays(
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
-// @function Retuns a value representing the deviation from the open (to the high or low) of the current day given number of days to measure from. 
+// @function Returns a value representing the deviation from the open (to the high or low) of the current day given number of days to measure from. 
 // @param daysPrior Number of days back to get the close from.
 // @param maxDeviation Maximum deviation before a value is considered an outlier. A value of 0 will not filter results.
 // @param comparison The value use in comparison to the current open for the day.
@@ -87,7 +87,7 @@ export fromOpen(
             0
 //////////////////////////////////////////////////
 
-days = input.int(50, "Days to Measure Deviation")
+days = input.int(50, "Days to Measure Deviation", minval=2)
 max = input.float(3, "Data Cleaning: Maximum Deviation", minval=0)
 
 dev = fromOpen(days, max)
