@@ -148,17 +148,25 @@ export vwma(
     if isLenInvalid(len)
         notAvailable
     else
-        sum = 0.0
-        vol = 0.0
-        last = len - 1
-        for i = 0 to last
-            s = src[i]
-            v = volume[i]
-            if na(v) and not na(volumeDefault)
-                v := volumeDefault
-            if not na(s) and not na(v)
-                vol += v
-                sum += s * v
+        var sum = 0.0
+        var vol = 0.0
+        float datum = na
+
+        v = volume
+        if na(v) and not na(volumeDefault)
+            v := volumeDefault
+        if not na(src) and not na(v)
+            vol += v
+            datum := src * v
+            sum += datum
+
+        vStart = v[len]
+        dStart = datum[len]
+        if not na(vStart)
+            vol -= vStart
+        if not na(dStart)
+            sum -= dStart
+
         vol == 0 ? na : sum/vol
 ///////////////////////////////////////////////////
 
