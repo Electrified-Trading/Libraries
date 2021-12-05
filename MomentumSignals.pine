@@ -4,7 +4,7 @@
 // @version=5
 // @description Contains utilities varying algorithms for detecting key changes in momentum.  Note: Momentum is not velocity and should be used in conjunction with other indicators.  A change in momentum does not mean a reversal of velocity or trend.
 library('MomentumSignals')
-import Electrified/Momentum/3
+import Electrified/Momentum/5
 
 quantize(float value, simple int up = 1, simple int dn = -1) =>
     na(value) ? na : value > 0 ? up : value < 0 ? dn : 0

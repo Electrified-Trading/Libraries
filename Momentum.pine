@@ -4,7 +4,7 @@
 // @version=5
 // @description Contains utilities varying algorithms for measuring momentum.
 library('Momentum')
-import Electrified/MovingAverages/3 as MA
+import Electrified/MovingAverages/10 as MA
 
 ///////////////////////////////////////////////////
 // @function Derives momentum from two moving averages of different lengths.

@@ -4,7 +4,7 @@
 // @version=5
 // @description Functions for determining if volatility (true range) is within or exceeds normal.
 library('Volatility')
-import Electrified/MovingAverages/3 as MA
+import Electrified/MovingAverages/10 as MA
 import Electrified/SessionInfo/9 as Session
 import Electrified/GapDetection/5 as Gap
 
