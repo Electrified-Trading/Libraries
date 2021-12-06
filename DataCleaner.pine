@@ -127,7 +127,7 @@ export outlierLevelAdjusted(
   simple float level,
   simple float maxDeviation = 0)=>
     if level == 0
-        runtime.error('Passing a level of (0) zero to "outlierLevel" is simply the average.')
+        runtime.error('Passing a level of (0) zero to "level" is simply the average.')
     cleaned = clean(src, len, maxDeviation==0 ? level : maxDeviation)
     avg = array.avg(cleaned)
     std = array.stdev(cleaned)  
