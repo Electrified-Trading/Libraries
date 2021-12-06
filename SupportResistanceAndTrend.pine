@@ -4,9 +4,10 @@
 // @version=5
 // @description Contains utilities for finding key levels of support, resistance and direction of trend.
 library('SupportResitanceAndTrend', true)
-import Electrified/MovingAverages/3 as MA
-import Electrified/DataCleaner/1 as Data
+import Electrified/MovingAverages/10 as MA
+import Electrified/DataCleaner/5 as Data
 
+///////////////////////////////////////////////////
 // @function A more flexible version of SuperTrend that allows for supplying the series used and sensitivity adjustment by confirming close bars.
 // @param multiple The multiple to apply to the average true range.
 // @param h The high values.
@@ -67,8 +68,14 @@ export superTrendPlus(
             unconfirmed := 0
 
     [trend, lastU, lastD, unconfirmed, unconfirmed[1]==0 and unconfirmed > 0, trend != trend[1]]
-///
+///////////////////////////////////////////////////
 
+getATR(simple string mode, simple int period, simple float maxDeviation) =>
+    trCleaned = maxDeviation==0 ? ta.tr : Data.naOutliers(ta.tr, period, maxDeviation)
+    MA.get(mode, period, trCleaned)
+////
+
+///////////////////////////////////////////////////
 // @function superTrendPlus with simplified parameters.
 // @param multiple The multiple to apply to the average true range.
 // @param period The number of bars to measure.
@@ -79,28 +86,31 @@ export superTrend(
   simple float multiple,
   simple int period,
   simple string mode = 'WMA',
-  simple int closeBars = 0) =>
-    superTrendPlus(multiple, high, low, MA.getMA(mode, period, ta.tr), closeBars)
-///
+  simple int closeBars = 0,
+  simple float maxDeviation = 0) =>
+    atr = getATR(mode, period, maxDeviation)
+    superTrendPlus(multiple, high, low, atr, closeBars)
+///////////////////////////////////////////////////
 
-// @function superTrendPlus with simplified parameters and compensation for extreme volatility.
+///////////////////////////////////////////////////
+// @function superTrendPlus with default compensation for extreme volatility.
 // @param multiple The multiple to apply to the average true range.
 // @param period The number of bars to measure.
 // @param mode The type of moving average to use with the true range.
 // @param closeBars The number of bars to confirm a change in trend.
-// @param level The optional positive or negative multiple of the standard deviation to apply to the average. A positive number will be the upper boundary and a negative number will be the lower boundary. 
 // @param maxDeviation The optional standard deviation level to use when cleaning the series.  The default is the value of the provided level. 
 // @returns [trend, up, dn, unconfirmed, warn, reversal]
 export superTrendCleaned(
   simple float multiple,
   simple int period,
+  simple string mode = 'WMA',
   simple int closeBars = 0,
-  simple float level = 1,
-  simple float maxDeviation = 1) =>
-    trAdjusted = Data.outlierLevelAdjusted(ta.tr, period, level, maxDeviation)
-    superTrendPlus(multiple, high, low, trAdjusted, closeBars)
-///
+  simple float maxDeviation = 4) =>
+    atr = getATR(mode, period, maxDeviation)
+    superTrendPlus(multiple, high, low, atr, closeBars)
+///////////////////////////////////////////////////
 
+///////////////////////////////////////////////////
 // @function Identifies support and resistance levels by when a stochastic RSI reverses.
 // @returns [trend, up, dn, unconfirmed, warn, reversal]
 export stochSR(
@@ -153,8 +163,9 @@ export stochSR(
         lo := low
 
     [lo, hi]
-///
+///////////////////////////////////////////////////
 
+///////////////////////////////////////////////////
 // @function Identifies anchored VWAP levels by when a stochastic RSI reverses.
 // @returns [loAVWAP, hiAVWAP, hiAVWAP_next, loAVWAP_next]
 export stochAVWAP(
@@ -242,3 +253,25 @@ export stochAVWAP(
     loAVWAP_next = loAVWAP_s_next / loAVWAP_v_next
 
     [loAVWAP, hiAVWAP, hiAVWAP_next, loAVWAP_next]
+///////////////////////////////////////////////////
+
+// Demo
+ATR = "Average True Range", CONFIRM = "Confirmation", DISPLAY = "Display"
+WMA = "WMA", EMA = "EMA", SMA = "SMA", VWMA = "VWMA", VAWMA = "VAWMA"
+
+mode = input.string(VAWMA, "Mode", options=[SMA,EMA,WMA,VWMA,VAWMA], group=ATR, tooltip="Selects which averaging function will be used to determine the ATR value.")
+atrPeriod = input.int(120, "Period", group=ATR, tooltip="The number of bars to use in calculating the ATR value.")
+atrM = input.float(3.0, title="Multiplier", step=0.5, group=ATR, tooltip="The multiplier used when defining the super trend limits.")
+
+closeBars = input.int(2, "Closed Bars", minval = 0, group=CONFIRM, tooltip="The number of closed bars that have to exceed the super-trend value before the trend reversal is confirmed.")
+
+
+[trend1, up, dn, unconfirmed1, warn1, reversal1] =
+  superTrend(atrM, atrPeriod, mode=mode, closeBars=closeBars)
+plot(up)
+plot(dn)
+
+[trend2, upCleaned, dnCleaned, unconfirmed2, warn2, reversal2] =
+  superTrendCleaned(atrM, atrPeriod, mode=mode, closeBars=closeBars)
+plot(upCleaned, color=color.green)
+plot(dnCleaned, color=color.green)
