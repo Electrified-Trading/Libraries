@@ -124,41 +124,52 @@ export special(
 // @param kmode The type of moving average to generate. Values allowed are: SMA, EMA, WMA, VWMA and VAWMA.
 // @param upper The upper band of the range.
 // @param lower The lower band of the range.
-// @returns [signal, stage] Where stage is +1 for over 50, -1 under 50, +2 for overbought, and -2 for oversold.
+// @returns [signal, stage] Where stage is: +1 is oversold and rising, +2 rising above lower bound but less than mid. +3 rising above mid. +4 is overbought.  Negative numbers are the reverse.
 export stochRSI(
-  simple int smoothK,
-  simple int smoothD,
-  simple int rsiLen,
-  simple int stochLen,
+  simple int smoothK = 3,
+  simple int smoothD = 3,
+  simple int rsiLen = 14,
+  simple int stochLen = 14,
   series float src = close,
   simple string kmode = "SMA",
   simple float upper = 80,
-  simple float lower = 20) =>
+  simple float lower = 20,
+  simple float mid = 50) =>
     [k, d] = Momentum.stochRSI(smoothK, smoothD, rsiLen, stochLen, src, kmode)
+    k_c = quantize(ta.change(k))
+    d_c = quantize(ta.change(d))
 
     // Where are we?
     var stage = 0
-    if k < lower
-        stage := -2 // oversold
-    else if k > upper
-        stage := +2 // overbought
-    else if k < 50
-        stage := -1 // transitioning under 50
-    else if k > 50
-        stage := +1 // transitioning over 50
+    if stage != -1 and k > d and k > upper 
+        stage := +4 // overbought
+    if stage != +1 and k < d and k < lower
+        stage := -4 // oversold
+    if stage == +4 and k < d and d_c < 0
+        stage := -1 // overbought and falling
+    if stage == -4 and k > d and d_c > 0
+        stage := +1 // oversold and rising
+    if stage == +1 and k > lower
+        stage := +2 // rising up
+    if stage == -1 and k < upper
+        stage := -2 // falling down
+    if stage == +2 and k > mid
+        stage := +3 // rising up high
+    if stage == -2 and k < mid
+        stage := -3 // falling down low 
+    if stage == +3 and k < d and d < mid or stage == -3 and k > d and d > mid
+        stage := 0 // indeterminate
 
     stage_c = ta.change(stage)
-    k_c = quantize(ta.change(k))
-    d_c = quantize(ta.change(d))
 
     // Avoid noisy alignment...
     signal = if k_c != d_c or k_c != quantize(k - d)
         0
     else
-        if stage_c > 0 and stage == -1
-            k_c + 1
-        else if stage_c < 0 and stage == +1
-            k_c - 1
+        if stage == +2
+            (k_c + 1) * (stage_c > 0 ? 2 : 1)
+        else if stage == -2
+            (k_c - 1) * (stage_c < 0 ? 2 : 1)
         else if d < lower
             k_c < 0 ? 0 : k_c
         else if d > upper
@@ -168,7 +179,6 @@ export stochRSI(
     
     [signal, stage]
 ///////////////////////////////////////////////////
-
 
 
 
@@ -192,12 +202,14 @@ plot(h, "Histogram", color.gray, style=plot.style_columns)
 signal = special(m, s, stdLen, stdM)
 //plot(signal, "Signal", color.orange)
 color signalColor = switch signal
+    +4 => color.new(color.green, 20)
     +3 => color.new(color.green, 40)
     +2 => color.new(color.green, 60)
     +1 => color.new(color.green, 80)
     -1 => color.new(color.red, 80)
     -2 => color.new(color.red, 60)
     -3 => color.new(color.red, 40)
+    -4 => color.new(color.red, 20)
     => na
 
 bgcolor(signalColor)
