@@ -8,8 +8,64 @@ import Electrified/MovingAverages/10 as MA
 import Electrified/SessionInfo/9 as Session
 import Electrified/GapDetection/5 as Gap
 
-// The "True Range" (ta.tr) is used for measuring volatility.
+// The "true range" (ta.tr) is used for measuring volatility.
 // Values are normalized by the volume adjusted weighted moving average (VAWMA) to be more like percent moves than price.
+
+//////////////////////////////////////////////////
+// @function Calculates the true range for a given span of bars. 
+// @param span Number of bars measure the true range.
+// @param quantized When true, the true range is calculated once for every span. When false (default), the true range is calulated for the span on every bar.
+export trueRange(
+  simple int span,
+  simple bool quantized = false) =>
+    if span < 1
+        runtime.error("The 'span' value must be at least 1.")
+    if span <= 1
+        ta.tr
+    else if quantized
+        var bar = 0
+        bar += 1
+        var float tr = na
+        if bar % span == 0
+            Cp = close[span]
+            H = ta.highest(high, span)
+            L = na.lowest(low, span)
+            tr := math.max(H - L, H - Cp, Cp - L)
+        tr
+    else
+        Cp = close[span]
+        H = ta.highest(high, span)
+        L = na.lowest(low, span)
+        math.max(H - L, H - Cp, Cp - L)
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Calculates the max range for a given span of bars. 
+// @param span Number of bars measure the max range.
+// @param period When true, the true range is calculated once for every span. When false (default), the true range is calulated for the span on every bar.
+export maxRange(
+  simple int span,
+  simple int period) =>
+    if span < 1
+        runtime.error("The 'span' value must be at least 1.")
+    if span <= 1
+        ta.tr
+    else if quantized
+        var bar = 0
+        bar += 1
+        var float tr = na
+        if bar % span == 0
+            Cp = close[span]
+            H = ta.highest(high, span)
+            L = na.lowest(low, span)
+            tr := math.max(H - L, H - Cp, Cp - L)
+        tr
+    else
+        Cp = close[span]
+        H = ta.highest(high, span)
+        L = na.lowest(low, span)
+        math.max(H - L, H - Cp, Cp - L)
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // @function Returns the normal upper range of volatility and the normal gap value.
