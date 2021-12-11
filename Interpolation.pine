@@ -1,0 +1,239 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+// Original Easing Functions: (c) 2001 Robert Penner http://robertpenner.com/easing/
+
+// @version=5
+// @description Functions for interpolating values. Can be useful in signal processing or applied as a sigmoid function.
+library('Interpolation')
+
+clamp(float k, bool unbound) =>
+    unbound ? k : k < 0 ? 0 : k > 1 ? 1 : k
+
+///////////////////////////////////////////////////
+// @function Returns the linear adjusted value.
+// @param k A number (float) from 0 to 1 representing where the on the line the value is.
+// @param delta The amount the value should change as k reaches 1.
+// @param offset The start value.
+// @param unbound When true, k values less than 0 or greater than 1 are still calculated. When false (default), k values less than 0 will return the offset value and values greater than 1 will return (offset + delta). 
+export linear(
+  float k,
+  float delta = 1,
+  float offset = 0,
+  simple bool unbound = false) =>
+    m = clamp(k, unbound) 
+    offset + delta * m
+///////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////
+// @function Returns the quadratic (easing-in) adjusted value.
+// @param k A number (float) from 0 to 1 representing where the on the curve the value is.
+// @param delta The amount the value should change as k reaches 1.
+// @param offset The start value.
+// @param unbound When true, k values less than 0 or greater than 1 are still calculated. When false (default), k values less than 0 will return the offset value and values greater than 1 will return (offset + delta). 
+export quadIn(
+  float k,
+  float delta = 1,
+  float offset = 0,
+  simple bool unbound = false) =>
+    m = clamp(k, unbound)   
+    offset + delta * m * m
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns the quadratic (easing-out) adjusted value.
+// @param k A number (float) from 0 to 1 representing where the on the curve the value is.
+// @param delta The amount the value should change as k reaches 1.
+// @param offset The start value.
+// @param unbound When true, k values less than 0 or greater than 1 are still calculated. When false (default), k values less than 0 will return the offset value and values greater than 1 will return (offset + delta). 
+export quadOut(
+  float k,
+  float delta = 1,
+  float offset = 0,
+  simple bool unbound = false) =>
+    m = clamp(k, unbound) 
+    offset + delta * m * (2 - m)
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns the quadratic (easing-in-out) adjusted value.
+// @param k A number (float) from 0 to 1 representing where the on the curve the value is.
+// @param delta The amount the value should change as k reaches 1.
+// @param offset The start value.
+// @param unbound When true, k values less than 0 or greater than 1 are still calculated. When false (default), k values less than 0 will return the offset value and values greater than 1 will return (offset + delta). 
+export quadInOut(
+  float k,
+  float delta = 1,
+  float offset = 0,
+  simple bool unbound = false) =>  
+    m = clamp(k, unbound) * 2
+    f = if m <= 1
+        0.5 * m * m
+    else
+        m -= 1
+        -0.5 * (m * (m - 2) - 1)
+    offset + delta * f
+///////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////
+// @function Returns the cubic (easing-in) adjusted value.
+// @param k A number (float) from 0 to 1 representing where the on the curve the value is.
+// @param delta The amount the value should change as k reaches 1.
+// @param offset The start value.
+// @param unbound When true, k values less than 0 or greater than 1 are still calculated. When false (default), k values less than 0 will return the offset value and values greater than 1 will return (offset + delta). 
+export cubicIn(
+  float k,
+  float delta = 1,
+  float offset = 0,
+  simple bool unbound = false) =>
+    m = clamp(k, unbound) 
+    offset + delta * m * m * m
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns the cubic (easing-out) adjusted value.
+// @param k A number (float) from 0 to 1 representing where the on the curve the value is.
+// @param delta The amount the value should change as k reaches 1.
+// @param offset The start value.
+// @param unbound When true, k values less than 0 or greater than 1 are still calculated. When false (default), k values less than 0 will return the offset value and values greater than 1 will return (offset + delta). 
+export cubicOut(
+  float k,
+  float delta = 1,
+  float offset = 0,
+  simple bool unbound = false) =>
+    m = clamp(k, unbound) - 1
+    m := m * m * m + 1
+    offset + delta * m
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns the cubic (easing-in-out) adjusted value.
+// @param k A number (float) from 0 to 1 representing where the on the curve the value is.
+// @param delta The amount the value should change as k reaches 1.
+// @param offset The start value.
+// @param unbound When true, k values less than 0 or greater than 1 are still calculated. When false (default), k values less than 0 will return the offset value and values greater than 1 will return (offset + delta). 
+export cubicInOut(
+  float k,
+  float delta = 1,
+  float offset = 0,
+  simple bool unbound = false) =>
+    m = clamp(k, unbound) * 2
+    f = if m <= 1
+        0.5 * m * m * m
+    else
+        m -= 2
+        0.5 * m * m * m + 2
+    offset + delta * f
+///////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////
+// @function Returns the exponential (easing-in) adjusted value.
+// @param k A number (float) from 0 to 1 representing where the on the curve the value is.
+// @param delta The amount the value should change as k reaches 1.
+// @param offset The start value.
+// @param unbound When true, k values less than 0 or greater than 1 are still calculated. When false (default), k values less than 0 will return the offset value and values greater than 1 will return (offset + delta). 
+export expoIn(
+  float k,
+  float delta = 1,
+  float offset = 0,
+  simple bool unbound = false) =>
+    m = clamp(k, unbound)
+    switch m
+        0 => offset
+        1 => offset + delta
+        => offset + delta * math.pow(1024, m - 1)
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns the exponential (easing-out) adjusted value.
+// @param k A number (float) from 0 to 1 representing where the on the curve the value is.
+// @param delta The amount the value should change as k reaches 1.
+// @param offset The start value.
+// @param unbound When true, k values less than 0 or greater than 1 are still calculated. When false (default), k values less than 0 will return the offset value and values greater than 1 will return (offset + delta). 
+export expoOut(
+  float k,
+  float delta = 1,
+  float offset = 0,
+  simple bool unbound = false) =>
+    m = clamp(k, unbound)
+    switch m
+        0 => offset
+        1 => offset + delta
+        => offset + delta * (1 - math.pow(2, -10*m))    
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns the exponential (easing-in-out) adjusted value.
+// @param k A number (float) from 0 to 1 representing where the on the curve the value is.
+// @param delta The amount the value should change as k reaches 1.
+// @param offset The start value.
+// @param unbound When true, k values less than 0 or greater than 1 are still calculated. When false (default), k values less than 0 will return the offset value and values greater than 1 will return (offset + delta). 
+export expoInOut(
+  float k,
+  float delta = 1,
+  float offset = 0,
+  simple bool unbound = false) =>
+    m = clamp(k, unbound)
+    switch m
+        0 => offset
+        1 => offset + delta
+        =>
+            m *= 2
+            f = m<=1 ?
+              math.pow(1024, m - 1) :
+              (-math.pow(2, -10*(m - 1)) + 2)
+            offset + delta * f * 0.5          
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns the adjusted value by function name.
+// @param fn The name of the function.  Allowed values: linear, quadIn, quadOut, quadInOut, cubicIn, cubicOut, cubicInOut, expoIn, expoOut, expoInOut.
+// @param k A number (float) from 0 to 1 representing where the on the curve the value is.
+// @param delta The amount the value should change as k reaches 1.
+// @param offset The start value.
+// @param unbound When true, k values less than 0 or greater than 1 are still calculated. When false (default), k values less than 0 will return the offset value and values greater than 1 will return (offset + delta). 
+export using(
+  simple string fn,
+  float k,
+  float delta = 1,
+  float offset = 0,
+  simple bool unbound = false) =>
+    switch fn
+        "linear"      => linear(k, delta, offset, unbound)
+        "quadIn"      => quadIn(k, delta, offset, unbound)
+        "quadOut"     => quadOut(k, delta, offset, unbound)
+        "quadInOut"   => quadInOut(k, delta, offset, unbound)
+        "cubicIn"     => cubicIn(k, delta, offset, unbound)
+        "cubicOut"    => cubicOut(k, delta, offset, unbound)
+        "cubicInOut"  => cubicInOut(k, delta, offset, unbound)
+        "expoIn"      => expoIn(k, delta, offset, unbound)
+        "expoOut"     => expoOut(k, delta, offset, unbound)
+        "expoInOut"   => expoInOut(k, delta, offset, unbound)
+        =>
+            runtime.error("Unknown function name.")
+            na
+///////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////
+// Demo
+
+var float bar = na
+day = time("D")
+if day != day[1]
+    bar := 0
+else
+    bar += 1
+
+float end = 390 / 2 / timeframe.multiplier // half bars per day
+float pos = bar / end
+
+fn = input.string("expoInOut", "Function", options=["linear", "quadIn", "quadOut", "quadInOut", "cubicIn", "cubicOut", "cubicInOut", "expoIn", "expoOut", "expoInOut"])
+
+hline(0)
+hline(0.5)
+hline(1)
+plot(using(fn, pos))
+
