@@ -26,7 +26,7 @@ export outlierLevel(
 // @function Returns only values that are within the maximum deviation.
 // @param src The series to filter results from.
 // @param len The The number of bars to measure. 
-// @param maxDeviation The positive or negative multiple of the standard deviation to apply to the average. A positive number will be the upper boundary and a negative number will be the lower boundary. 
+// @param maxDeviation The maximum deviation before considered an outlier. 
 export naOutliers(
   series float src,
   simple int len,
@@ -112,6 +112,32 @@ export cleanArray(
             if lo < v and v < hi
                 array.push(cleaned, v)
         cleaned 
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Returns an array representing the source array with outliers removed.
+// @param src The array to set outliers to N/A.
+// @param maxDeviation The maximum deviation before considered an outlier.
+// @returns True if there were any outliers; otherwise false.
+export naArrayOutliers(
+  float[] src,
+  simple float maxDeviation) =>
+    if array.size(src)==0
+        false
+    else
+        avg = array.avg(src)
+        stdev = array.stdev(src)
+        last = array.size(src) - 1
+        level = stdev * maxDeviation
+        hi = avg + level
+        lo = avg - level
+        bool modified = false
+        for i = 0 to last
+            v = array.get(src, i)
+            if lo > v or v > hi
+                array.set(src, i, na)
+                modified := true
+        modified 
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
