@@ -18,9 +18,9 @@ export upper(
     var int trend = 0
     var int phase = 0
 
-    phase := if value > limit
+    phase := if not na(value) and (value > limit or na(limit))
         trend := +1
-        limit := src
+        limit := value
         0
     else
         switch phase
@@ -49,9 +49,9 @@ export lower(
     var int trend = 0
     var int phase = 0
 
-    phase := if value < limit
+    phase := if not na(value) and (value < limit or na(limit))
         trend := -1
-        limit := src
+        limit := value
         0
     else
         switch phase
@@ -64,8 +64,23 @@ export lower(
                     0
                 else
                     2    
-    limit    
+    limit
 ///////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////
+// @function Determines the local trend of a series that and persists the trend if the value is unchanged.
+// @param src The source series to derive from.
+// @return +1 when the trend is up; -1 when the trend is down; 0 if the trend is not yet established.
+export trend(series float src) =>
+    var s = 0
+    if src > src[1]
+        s := +1
+    if src < src[1]
+        s := -1
+    s
+///////////////////////////////////////////////////
+
 
 hi0 = upper(high)
 hi1 = upper(hi0, 0.1)
