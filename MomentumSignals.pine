@@ -10,8 +10,8 @@ quantize(float value, simple int up = 1, simple int dn = -1) =>
     na(value) ? na : value > 0 ? up : value < 0 ? dn : 0
 
 signalOnly(
-  series float s) =>
-    quantize(ta.change(s))
+  series float s, int len = 1) =>
+    quantize(ta.change(s, 1))
 
 // Changes in direction at the key.
 reverseSignalOnly(
@@ -105,9 +105,22 @@ export special(
     h = primary - secondary // similar to the histogram in MACD.
     d = ta.change(h)
     [t, std] = trend(h, d, stdlen, stdMultiple)
-    sm = std * stdMultiple / 2
     x = t > 0 and d < 0 or t < 0 and d > 0 ? 0 : quantize(d)
     r = p + s + x
+
+    accelleration = ta.change(d)
+    aStd = ta.stdev(accelleration, stdlen)
+    accP = accelleration[1]
+    a = signalOnly(accelleration)
+    if a>aStd or accP>aStd or a<-aStd or accP<-aStd
+        if primary < h and a > 0 or primary > h and a < 0
+            r += a
+
+    if r < -1 and d > 0
+        r := -1
+    else if r > +1 and d < 0
+        r := +1
+
     // When the signal level has exceeded the histogram, signals become more risky.
     r := primary > secondary and secondary > h or primary < secondary and secondary < h ? x : r
     // Filter out noise.
