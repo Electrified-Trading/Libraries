@@ -1,0 +1,230 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+
+// @version=5
+// @description Provides functions for simplifying operations with collections of x+y coordinates.  Where x is typically a bar index or time (millisecond) value.
+library('Points')
+
+//////////////////////////////////////////////////
+// @function Creates two arrays. One for X (int[]) and another for Y (float[]). 
+// @param size The initial size of the arrays.
+export new(int size = 0) =>
+    [array.new_int(size), array.new_float(size)]
+//////////////////////////////////////////////////    
+
+//////////////////////////////////////////////////
+// @function Checks the size of the arrays and if they're equal returns the size. 
+// @param xA The X array.
+// @param yA The Y array.
+export size(int[] xA, float[] yA) =>
+    if array.size(xA) != array.size(yA)
+        runtime.error('Point arrays are out of sync.')
+    array.size(xA)
+//////////////////////////////////////////////////    
+
+checkBounds(int[] xA, float[] yA, int index) =>
+    if size(xA, yA) <= index
+        runtime.error('Requested index is greater than available.')  
+    else if index < 0
+        runtime.error('Index is less than zero.')
+////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////
+// @function Gets the X and Y values of the arrays at the index. 
+// @param xA The X array.
+// @param yA The Y array.
+// @param index The index.
+// @returns [x, y]
+export get(int[] xA, float[] yA, int index) =>
+    checkBounds(xA, yA, index)
+    [array.get(xA, index), array.get(yA, index)]
+////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////
+// @function Sets the X and Y values of the arrays at the index. 
+// @param xA The X array.
+// @param yA The Y array.
+// @param index The index.
+// @param x The x value.
+// @param y The y value.
+// @returns [index, x, y]
+export set(int[] xA, float[] yA, int index, int x, float y) =>
+    checkBounds(xA, yA, index)
+    array.set(xA, index, x)
+    array.set(yA, index, y)
+    [index, x, y]
+////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////
+// @function Adds X and Y values to the end of the arrays (as the last element). 
+// @param xA The X array.
+// @param yA The Y array.
+// @param x The x value.
+// @param y The y value.
+// @returns [index, x, y]
+export push(int[] xA, float[] yA, int x, float y) =>
+    index = size(xA, yA)
+    array.push(xA, x)
+    array.push(yA, y)
+    [index, x, y]
+////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////
+// @function Adds X and Y values to the beginning of the arrays (as the first element). 
+// @param xA The X array.
+// @param yA The Y array.
+// @param x The x value.
+// @param y The y value.
+// @returns [index, x, y]
+export unshift(int[] xA, float[] yA, int x, float y) =>
+    size(xA, yA) // validate
+    array.unshift(xA, x)
+    array.unshift(yA, y)
+    [0, x, y]
+////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////
+// @function Inserts X and Y values to the arrays at the index. 
+// @param xA The X array.
+// @param yA The Y array.
+// @param index The index to insert at.
+// @param x The x value.
+// @param y The y value.
+// @returns [index, x, y]
+export insert(int[] xA, float[] yA, int index, int x, float y) =>
+    checkBounds(xA, yA, index)
+    array.insert(xA, index, x)
+    array.insert(yA, index, y)
+    [index, x, y]
+////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////
+// @function Removes the last element from the arrays and returns their value. 
+// @param xA The X array.
+// @param yA The Y array.
+// @returns [x, y]
+export pop(int[] xA, float[] yA) =>
+    if size(xA, yA) == 0
+        [int(na), float(na)]
+    else
+        [array.pop(xA), array.pop(yA)]
+////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////
+// @function Removes the first element from the arrays and returns their value. 
+// @param xA The X array.
+// @param yA The Y array.
+// @returns [x, y]
+export shift(int[] xA, float[] yA) =>
+    if size(xA, yA) == 0
+        [int(na), float(na)]
+    else
+        [array.shift(xA), array.shift(yA)]
+////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////
+// @function Removes the element from the arrays at the index and returns their value. 
+// @param xA The X array.
+// @param yA The Y array.
+// @returns [x, y]
+export remove(int[] xA, float[] yA, int index) =>
+    [x, y] = get(xA, yA, index)
+    array.remove(xA, index)
+    array.remove(yA, index)
+    [x, y]
+////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////
+// @function Gets the X and Y values of the first element. 
+// @param xA The X array.
+// @param yA The Y array.
+// @returns [x, y]
+export first(int[] xA, float[] yA) =>
+    len = size(xA, yA)
+    if len == 0
+        [int(na), float(na)]
+    else
+        [array.get(xA, 0), array.get(yA, 0)]
+////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////
+// @function Gets the X and Y values of the last element. 
+// @param xA The X array.
+// @param yA The Y array.
+// @returns [x, y]
+export last(int[] xA, float[] yA) =>
+    len = size(xA, yA)
+    if len == 0
+        [int(na), float(na)]
+    else
+        last = len - 1
+        [array.get(xA, last), array.get(yA, last)]
+//////////////////////////////////////////////////    
+
+getLastIndex(int[] xA, int start) =>
+    size = array.size(xA)
+    if not na(start)
+        if start >= size
+            runtime.error("Value of 'start' is greater than available.")
+        start
+    else
+        size - 1
+////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////
+// @function Gets the indexes that have values at or above the low value and below the high value. 
+// @param xA The X array.
+// @param lo The inclusive low value.
+// @param hi The excluded hi value.
+// @param start The optional index to start the backwards search.
+// @param ordered If true, the search ends when the first value is found that is less than the low.
+export allIndexesBetween(int[] xA, int lo, int hi, int start = na, bool ordered = false) =>
+    int[] indexes = array.new_int()
+    last = na(lo) or na(hi) ? -1 : getLastIndex(xA, start)
+    while last >= 0
+        x = array.get(xA, last)
+        if x <= lo
+            if ordered
+                last := -1
+        else if x < hi
+            array.push(indexes, last)
+        last -= 1
+    array.reverse(indexes) // because unshifting is expensive
+    indexes
+////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////
+// @function Gets the first found from the end that has a value at or above the low value and below the high value. 
+// @param xA The X array.
+// @param lo The inclusive low value.
+// @param hi The excluded hi value.
+// @param start The optional index to start the backwards search.
+// @param ordered If true, the search ends when the first value is found that is less than the low.
+export lastIndexBetween(int[] xA, int lo, int hi, int start = na, bool ordered = false) =>
+    int index = -1
+    last = na(lo) or na(hi) ? -1 : getLastIndex(xA, start)
+    while index == -1 and last >= 0
+        x = array.get(xA, last)
+        if x <= lo
+            if ordered
+                last := -1
+        else if x < hi
+            index := last
+        last -= 1
+    index
+////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////
+// @function Gets the first found from the end that has a value below the high value. 
+// @param xA The X array.
+// @param hi The excluded hi value.
+// @param start The optional index to start the backwards search.
+export lastIndexBelow(int[] xA, int hi, int start = na) =>
+    int index = -1
+    last = na(hi) ? -1 : getLastIndex(xA, start)
+    while index == -1 and last >= 0
+        if array.get(xA, last) < hi
+            index := last
+        last -= 1
+    index
+////////////////////////////////////////////////// 
