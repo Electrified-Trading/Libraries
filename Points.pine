@@ -53,7 +53,7 @@ export set(int[] xA, float[] yA, int index, int x, float y) =>
     array.set(xA, index, x)
     array.set(yA, index, y)
     [index, x, y]
-////////////////////////////////////////////////// 
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // @function Adds X and Y values to the end of the arrays (as the last element). 
@@ -97,6 +97,32 @@ export insert(int[] xA, float[] yA, int index, int x, float y) =>
     array.insert(yA, index, y)
     [index, x, y]
 ////////////////////////////////////////////////// 
+
+//////////////////////////////////////////////////
+// @function Inserts the X and Y values into the arrays based upon the X value assuming the the arrays is ordered by X. 
+// @param xA The X array.
+// @param yA The Y array.
+// @param x The x value.
+// @param y The y value.
+// @returns [index, x, y]
+export add(int[] xA, float[] yA, int x, float y) =>
+    last = size(xA, yA) - 1
+    if last < 0 or array.get(xA, last) <= x
+        push(xA, yA, x, y)
+    else
+        done = false
+        last -= 1
+        while not done and last >= 0
+            if x < array.get(xA, last)
+                last -= 1
+            else
+                done := true
+
+        if last < 0
+            unshift(xA, yA, x, y)
+        else
+            insert(xA, yA, last + 1, x, y)
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // @function Removes the last element from the arrays and returns their value. 
