@@ -107,7 +107,9 @@ export insert(int[] xA, float[] yA, int index, int x, float y) =>
 // @returns [index, x, y]
 export add(int[] xA, float[] yA, int x, float y) =>
     last = size(xA, yA) - 1
-    if last < 0 or array.get(xA, last) <= x
+    if last < 0
+        push(xA, yA, x, y)
+    else if array.get(xA, last) <= x
         push(xA, yA, x, y)
     else
         done = false
