@@ -33,9 +33,27 @@ export naOutliers(
   simple float maxDeviation = 4)=>
     if maxDeviation == 0
         runtime.error('Passing a level of (0) zero to "maxDeviation" is simply the average.')
-    avg = ta.sma(src, len)
-    dev = ta.stdev(src, len) * maxDeviation
+    prev = src[1] // ignore current in measurment as it could throw off result.
+    avg = ta.sma(prev, len)
+    dev = ta.stdev(prev, len) * maxDeviation
     src > avg + dev or src < avg - dev ? na : src
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Returns the source value adjusted by its standard deviation.
+// @param src The series to measure.
+// @param len The number of bars to measure the standard deviation.
+// @param maxDeviation The maximum deviation before considered an outlier.
+// @param baseline The value considered to be at center.  Typically zero.
+export normalize(
+  series float src,
+  simple int len,
+  simple int maxDeviation = 4,
+  float baseline = 0) =>
+    cleaned = naOutliers(src, maxDeviation)
+    avg = ta.sma(cleaned, len)
+    stdev = ta.stdev(cleaned, len)
+    src / (src >= baseline ? (avg + stdev) : math.abs(avg - stdev))
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////

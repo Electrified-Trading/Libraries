@@ -5,6 +5,15 @@
 // @description Contains utilities varying algorithms for measuring momentum.
 library('Momentum')
 import Electrified/MovingAverages/10 as MA
+import Electrified/DataCleaner/7 as Data
+
+///////////////////////////////////////////////////
+// @function Returns the 'change' (current - previous) in value normalized by standard deviation measured by the provided length.
+// @param src The series to measure changes.
+// @param len The number of bars to measure the standard deviation.
+export changeNormalized(series float src, int len) =>
+    Data.normalize(ta.change(src) / src, len)
+///////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////
 // @function Derives momentum from two moving averages of different lengths.

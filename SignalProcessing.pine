@@ -1,0 +1,34 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified
+
+// @version=5
+// @description Utilities for modifying signal values.
+library("SignalProcessing")
+
+
+////////////////////////////////////////////////// 
+// @function Fixes value based on whether its positive or negative..
+// @param value The value to quantize on.
+// @param positive The result if the value is greater than zero.
+// @param negative The result if the value is less than zero.
+// @param zero The result if the value is equal to zero.
+// @param nan The result if the value cannot be evaluated.
+export quantize(float value, float positive = +1, float negative = -1, float zero = 0, float nan = na) =>
+    if value > 0
+        positive
+    else if value < 0
+        negative
+    else if value == 0
+        zero
+    else
+        nan
+////////////////////////////////////////////////// 
+
+////////////////////////////////////////////////// 
+// @function Applies a multiple if the value is negative.
+// @param value The value to muliply.
+// @param multiple The multiple to apply if negative.
+export negMult(float value, float multiple) =>
+    value < 0 ? (value * multiple) : value
+////////////////////////////////////////////////// 
+ 
