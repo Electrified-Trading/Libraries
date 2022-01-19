@@ -56,6 +56,7 @@ export stochRSI(
     [k, d]
 ///////////////////////////////////////////////////
 
+///////////////////////////////////////////////////
 // @function Same as well-known MACD formula but allows for different moving averages types to be used.
 // @param fast The length of the fast moving average.
 // @param slow The length of the slow moving average.
