@@ -91,7 +91,8 @@ export isAfter(
 export minutesToLen(
   simple int minutes, 
   simple float multiple = 1) =>
-    math.ceil(minutes * multiple / timeframe.multiplier)
+    var minutesPerBar = timeframe.isminutes ? timeframe.multiplier : timeframe.isseconds ? timeframe.multiplier / 60 : na
+    math.ceil(minutes * multiple / minutesPerBar)
 ///////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////
