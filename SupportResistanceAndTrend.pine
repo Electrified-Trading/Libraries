@@ -110,6 +110,102 @@ export superTrendCleaned(
     superTrendPlus(multiple, high, low, atr, closeBars)
 ///////////////////////////////////////////////////
 
+
+calcDev(series float source, simple int len, simple float multiple) =>
+    ta.wma(source, len) + ta.wma(ta.stdev(source, len * 2), len) * multiple
+
+///////////////////////////////////////////////////
+// @function superTrendPlus with default compensation for extreme volatility.
+// @param multiple The multiple to apply to the average true range.
+// @param period The number of bars to measure.
+// @param mode The type of moving average to use with the true range.
+// @param closeBars The number of bars to confirm a change in trend.
+// @param maxDeviation The optional standard deviation level to use when cleaning the series.  The default is the value of the provided level. 
+// @returns [trend, up, dn, unconfirmed, warn, reversal]
+export superTrendAuto(
+  simple float deviationLevel,
+  simple int deviationLength,
+  simple int confirmBars = 2,
+  simple float atrMultiple = 0.5,
+  simple float maxAtrDeviation = 2.5) =>
+    atr = getATR(WMA, deviationLength, maxAtrDeviation)
+    tolerance = atr * atrMultiple
+
+    // Determine the range for the delta length
+    upDev = calcDev(math.max(high - low[volLen], 0), deviationLength, deviationLevel)
+    dnDev = calcDev(math.max(high[volLen] - low, 0), deviationLength, deviationLevel)
+
+    // Trend
+    UP = +1, DOWN = -1
+    var trend = 0
+    var upper = high
+    var lower = low
+    var brokenCount = 0
+    var wasTouched = false
+    warn = false
+    reversal = false
+
+    upperWarning = close > upper
+    lowerWarning = close < lower
+    upperBroken = close[1] - tolerance > upper
+    lowerBroken = close[1] + tolerance < lower
+
+    if trend == UP
+        // Touching the lower boundary resets the warning condition
+        if upperWarning
+            brokenCount := 0
+            wasTouched := false
+        if lowerWarning
+            wasTouched := true
+            warn := true
+    else
+        if lowerBroken
+            lower := low[1]
+        if upperBroken
+            brokenCount += 1
+
+    if trend == DOWN
+        // Touching the upper boundary resets the warning condition
+        if lowerWarning
+            brokenCount := 0
+            wasTouched := false
+        if upperWarning
+            wasTouched := true
+            warn := true        
+    else
+        if upperBroken
+            upper := high[1]
+        if lowerBroken
+            warn := true
+            brokenCount += 1
+
+    if trend != UP
+        // If the low exceeds the threshold then confirmation is not required.
+        if brokenCount > confirmBars or low > upper + tolerance 
+            trend := UP
+            upper := high[1]
+            reversal := true
+
+    else if trend != DOWN
+        // If the high exceeds the threshold then confirmation is not required.
+        if brokenCount > confirmBars or high < lower - tolerance
+            trend := DOWN
+            lower := low[1]
+            reversal := true
+
+    if reversal
+        wasTouched := false
+        brokenCount := 0
+
+    // Range adjustment
+    if low[1] + tolerance < upper - dnDev
+        upper := low[1] + dnDev
+    if high[1] - tolerance > lower + upDev
+        lower := high[1] - upDev
+
+    [trend, lower, upper, brokenCount, warn, reversal]
+///////////////////////////////////////////////////
+
 ///////////////////////////////////////////////////
 // @function Identifies support and resistance levels by when a stochastic RSI reverses.
 // @returns [trend, up, dn, unconfirmed, warn, reversal]

@@ -5,6 +5,7 @@
 // @description Utilities for measuring time.
 library("Time")
 
+///////////////////////////////////////////////////
 // @function Gets the number of milliseconds per bar.
 export bar() =>
     var int msPerDay = 1000 * 60 * 60 * 24
@@ -20,17 +21,52 @@ export bar() =>
         1000 * 60
     var value = m * timeframe.multiplier
     value
+///////////////////////////////////////////////////
 
+///////////////////////////////////////////////////
 // @function Gets the start of the day for the provided time value.
 // @param datetime The date/time to acquire the date from.
 // @returns The number of milliseconds representing the date for the given value.
 export date(int datetime = time) =>
     timestamp(year(datetime), month(datetime), dayofmonth(datetime))
+///////////////////////////////////////////////////
 
+///////////////////////////////////////////////////
 // @function Gets milliseconds from the start of the day.
 // @param datetime The date/time to acquire the time of day from.
 // @returns The number of milliseconds representing time of day.
 export timeOfDay(int datetime = time) =>
     datetime - date(datetime)
+///////////////////////////////////////////////////
+    
+///////////////////////////////////////////////////
+// @function Returns the number (float) bars that represents the timespan provided.
+// @param timespan The number of units to convert to bar count.
+// @param type The type of units to measure. ('Bar', 'Minute' or 'Day')
+// @param sessionMinutes Optional override for the number of minutes per session.  (Default: Regular = 390, Extended = 1440)
+// @returns The number bars that represents the timespan provided.
+export spanToLen(simple float timespan, simple string type, simple int sessionMinutes = na) =>
+    var minutesPerBar = timeframe.isminutes ? timeframe.multiplier : timeframe.isseconds ? timeframe.multiplier / 60 : na
+    var sess_minutes = na(sessionMinutes) ? syminfo.session == session.regular ? 390 : 1440 : sessionMinutes
+    switch type
+        'Bar' => timespan
+        'Minute' => timespan / minutesPerBar
+        'Day' => timeframe.isintraday ?
+          (sess_minutes * timespan / minutesPerBar) :
+          timeframe.isdaily ? timespan :
+          timeframe.isweekly ? timespan / 7 : 
+          timeframe.ismonthly ? timespan / 30 :
+          na
+        => na
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Returns the number (int) bars that represents the timespan provided.
+// @param timespan The number of units to convert to bar count.
+// @param type The type of units to measure. ('Bar', 'Minute' or 'Day')
+// @returns The number bars that represents the timespan provided.
+export spanToIntLen(simple float timespan, simple string type) =>
+    math.ceil(spanToLen(timespan, type))
+///////////////////////////////////////////////////
 
 plot(bar())
