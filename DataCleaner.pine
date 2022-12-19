@@ -30,7 +30,7 @@ export outlierLevel(
 export naOutliers(
   series float src,
   simple int len,
-  simple float maxDeviation = 4)=>
+  simple float maxDeviation = 4) =>
     if maxDeviation == 0
         runtime.error('Passing a level of (0) zero to "maxDeviation" is simply the average.')
     prev = src[1] // ignore current in measurment as it could throw off result.
