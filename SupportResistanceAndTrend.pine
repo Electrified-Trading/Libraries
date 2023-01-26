@@ -7,6 +7,52 @@ library('SupportResitanceAndTrend', true)
 import Electrified/MovingAverages/10 as MA
 import Electrified/DataCleaner/5 as Data
 
+////////////////////////////////////////////////////////////////
+// @type A high and low value pair.
+// @field hi The high value.
+// @field lo The low value.
+export type Boundary
+    float hi
+    float lo
+
+////////////////////////////////////////////////////////////////
+// @type The state of the trend.
+// @field trend The integer representing the trend.
+// @field up The value boundary value when the trend is up.
+// @field dn The value boundary value when the trend is down.
+// @field hitCount The number of times the boundary has been tested but trend is still intact.
+// @field warning True if the active boundary has been hit.
+// @field reversal True if the trend has confirmed reversal.
+export type TrendState
+    int trend
+    float up
+    float dn
+    int hitCount
+    bool warning
+    bool reversal
+
+///////////////////////////////////////////////////
+// @function Determines the local trend of a series that and persists the trend if the value is unchanged.
+// @param src The source series to derive from.
+// @return +1 when the trend is up; -1 when the trend is down; 0 if the trend is not yet established.
+export trend(series float src) =>
+    var s = 0
+    if src > src[1]
+        s := +1
+    if src < src[1]
+        s := -1
+    s
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Determines the local trend of each boundary level that and persists the trend if the value is unchanged.
+// @param src The source series to derive from.
+export trend(series Boundary src) =>
+    hi = trend(src.hi)
+    lo = trend(src.lo)
+    Boundary.new(hi, lo)
+///////////////////////////////////////////////////
+
 ///////////////////////////////////////////////////
 // @function A more flexible version of SuperTrend that allows for supplying the series used and sensitivity adjustment by confirming close bars.
 // @param multiple The multiple to apply to the average true range.
@@ -14,7 +60,6 @@ import Electrified/DataCleaner/5 as Data
 // @param l The low values.
 // @param atr The average true range values.
 // @param closeBars The number of bars to confirm a change in trend.
-// @returns [trend, up, dn, unconfirmed, warn, reversal]
 export superTrendPlus(
   simple float multiple,
   series float h,
@@ -67,7 +112,7 @@ export superTrendPlus(
             confirmation := 0
             unconfirmed := 0
 
-    [trend, lastU, lastD, unconfirmed, unconfirmed[1]==0 and unconfirmed > 0, trend != trend[1]]
+    TrendState.new(trend, lastU, lastD, unconfirmed, unconfirmed[1]==0 and unconfirmed > 0, trend != trend[1])
 ///////////////////////////////////////////////////
 
 getATR(simple string mode, simple int period, simple float maxDeviation) =>
@@ -81,7 +126,6 @@ getATR(simple string mode, simple int period, simple float maxDeviation) =>
 // @param period The number of bars to measure.
 // @param mode The type of moving average to use with the true range.
 // @param closeBars The number of bars to confirm a change in trend.
-// @returns [trend, up, dn, unconfirmed, warn, reversal]
 export superTrend(
   simple float multiple,
   simple int period,
@@ -99,7 +143,6 @@ export superTrend(
 // @param mode The type of moving average to use with the true range.
 // @param closeBars The number of bars to confirm a change in trend.
 // @param maxDeviation The optional standard deviation level to use when cleaning the series.  The default is the value of the provided level. 
-// @returns [trend, up, dn, unconfirmed, warn, reversal]
 export superTrendCleaned(
   simple float multiple,
   simple int period,
@@ -121,19 +164,19 @@ calcDev(series float source, simple int len, simple float multiple) =>
 // @param mode The type of moving average to use with the true range.
 // @param closeBars The number of bars to confirm a change in trend.
 // @param maxDeviation The optional standard deviation level to use when cleaning the series.  The default is the value of the provided level. 
-// @returns [trend, up, dn, unconfirmed, warn, reversal]
 export superTrendAuto(
+  simple int volatilityLength,
   simple float deviationLevel,
   simple int deviationLength,
   simple int confirmBars = 2,
   simple float atrMultiple = 0.5,
   simple float maxAtrDeviation = 2.5) =>
-    atr = getATR(WMA, deviationLength, maxAtrDeviation)
+    atr = getATR("WMA", deviationLength, maxAtrDeviation)
     tolerance = atr * atrMultiple
 
     // Determine the range for the delta length
-    upDev = calcDev(math.max(high - low[volLen], 0), deviationLength, deviationLevel)
-    dnDev = calcDev(math.max(high[volLen] - low, 0), deviationLength, deviationLevel)
+    upDev = calcDev(math.max(high - low[volatilityLength], 0), deviationLength, deviationLevel)
+    dnDev = calcDev(math.max(high[volatilityLength] - low, 0), deviationLength, deviationLevel)
 
     // Trend
     UP = +1, DOWN = -1
@@ -203,12 +246,11 @@ export superTrendAuto(
     if high[1] - tolerance > lower + upDev
         lower := high[1] - upDev
 
-    [trend, lower, upper, brokenCount, warn, reversal]
+    TrendState.new(trend, lower, upper, brokenCount, warn, reversal)
 ///////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////
 // @function Identifies support and resistance levels by when a stochastic RSI reverses.
-// @returns [trend, up, dn, unconfirmed, warn, reversal]
 export stochSR(
   simple int smoothK,
   simple int smoothD,
@@ -258,12 +300,12 @@ export stochSR(
     if(low<lo)
         lo := low
 
-    [lo, hi]
+    Boundary.new(hi, lo)
 ///////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////
 // @function Identifies anchored VWAP levels by when a stochastic RSI reverses.
-// @returns [loAVWAP, hiAVWAP, hiAVWAP_next, loAVWAP_next]
+// @returns [active_HL, next_HL]
 export stochAVWAP(
   simple int smoothK,
   simple int smoothD,
@@ -342,13 +384,11 @@ export stochAVWAP(
         lo := plo
         loAVWAP_s := loAVWAP_s_next
         loAVWAP_v := loAVWAP_v_next
-        
-    hiAVWAP = hiAVWAP_s / hiAVWAP_v
-    loAVWAP = loAVWAP_s / loAVWAP_v
-    hiAVWAP_next = hiAVWAP_s_next / hiAVWAP_v_next
-    loAVWAP_next = loAVWAP_s_next / loAVWAP_v_next
+    
+    avwap = Boundary.new(hiAVWAP_s / hiAVWAP_v, loAVWAP_s / loAVWAP_v)
+    avwap_next = Boundary.new(hiAVWAP_s_next / hiAVWAP_v_next, loAVWAP_s_next / loAVWAP_v_next)
 
-    [loAVWAP, hiAVWAP, hiAVWAP_next, loAVWAP_next]
+    [avwap, avwap_next]
 ///////////////////////////////////////////////////
 
 // Demo
@@ -362,12 +402,15 @@ atrM = input.float(3.0, title="Multiplier", step=0.5, group=ATR, tooltip="The mu
 closeBars = input.int(2, "Closed Bars", minval = 0, group=CONFIRM, tooltip="The number of closed bars that have to exceed the super-trend value before the trend reversal is confirmed.")
 
 
-[trend1, up, dn, unconfirmed1, warn1, reversal1] =
-  superTrend(atrM, atrPeriod, mode=mode, closeBars=closeBars)
-plot(up)
-plot(dn)
+st = superTrend(atrM, atrPeriod, mode=mode, closeBars=closeBars)
+plot(st.up)
+plot(st.dn)
 
-[trend2, upCleaned, dnCleaned, unconfirmed2, warn2, reversal2] =
-  superTrendCleaned(atrM, atrPeriod, mode=mode, closeBars=closeBars)
-plot(upCleaned, color=color.green)
-plot(dnCleaned, color=color.green)
+stc = superTrendCleaned(atrM, atrPeriod, mode=mode, closeBars=closeBars)
+plot(stc.up, color=color.green)
+plot(stc.dn, color=color.green)
+
+// [trendAuto, upAuto, dnAuto, unconfirmedAuto, warnAuto, reversalAuto] =
+//   superTrendAuto(26, 2.5, 1000)
+// plot(upAuto, color=color.orange)
+// plot(dnAuto, color=color.orange)

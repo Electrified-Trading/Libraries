@@ -143,7 +143,7 @@ export wma(
 // @param volumeDefault The default value to use when a chart has no (N/A) volume. 
 export vwma(
   simple int len,
-  series float src = close,
+  series float src = hlc3,
   simple float volumeDefault = na) =>
     var float notAvailable = na
     if isLenInvalid(len)
@@ -172,6 +172,50 @@ export vwma(
             sum -= dStart
 
         vol == 0 ? na : sum/vol
+///////////////////////////////////////////////////
+
+type VWAP
+    float sum
+    float volume
+    float value
+
+vwap(float sum, float vol, float ratio = 1) =>
+    VWAP.new(ratio * sum, ratio * vol, sum/vol)
+
+sum(VWAP a, VWAP b, float ratio = 1) =>
+    s = a.sum + b.sum
+    v = a.volume + b.volume
+    vwap(s, v, ratio)
+
+import Electrified/Time/7
+///////////////////////////////////////////////////
+// @function This is experimental moving average doesn't use a period/length but instead buffers the price per share and transfers that price per share at a given ratio per bar while also releasing the previous values at a decay ratio.
+// @param transferRatio The ratio at which buffered data is applied to the average.
+// @param releaseRatio The ratio at which data is released from the average.
+// @param useTime When true will tend to make the values consistent across timeframes.
+// @param src The series to measure from.  Default is 'hlc3'.
+// @param volumeDefault The default value to use when a chart has no (N/A) volume. 
+export rsvwma(
+  simple float transferRatio,
+  simple float releaseRatio,
+  simple bool useTime,
+  series float src = hlc3,
+  float volumeDefault = volume) =>
+    var retainRatio = 1 - releaseRatio
+    var minutesPerBar = Time.bar() / 1000 / 60
+    var m = useTime ? minutesPerBar : 1
+    var r = math.pow(1 - transferRatio, m)
+    
+    var active = VWAP.new(0, 0, 0)
+    var surplus = VWAP.new(0, 0, 0)
+
+    s = surplus.sum + src * volumeDefault
+    v = surplus.volume + volumeDefault
+    transfer = vwap(s, v, 1 - r)
+    surplus := vwap(s, v, r)
+    active := sum(active, transfer, math.pow(retainRatio, m))
+
+    active.value
 ///////////////////////////////////////////////////
 
 SMA = 'SMA', EMA = 'EMA', WMA = 'WMA', CMA = 'CMA', VWMA = 'VWMA', VAWMA = 'VAWMA'

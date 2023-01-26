@@ -6,6 +6,27 @@
 library("DataCleaner")
 
 //////////////////////////////////////////////////
+// @type A struct of the result of calculating the average and the standard deviation.
+// @field average The average.
+// @field stdev The standard deviation.
+export type Deviation
+    float average
+    float stdev
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Gets the average and standard deviation for a given series.
+// @param src The source series
+// @param len The The number of bars to measure. 
+export calcDeviation(
+  series float src,
+  simple int len) =>
+    avg = ta.sma(src, len)
+    std = ta.stdev(src, len)
+    Deviation.new(avg, std)
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
 // @function Gets the (standard deviation) outlier level for a given series.
 // @param src The series to average and add a multiple of the standard deviation to.
 // @param len The The number of bars to measure. 
@@ -14,12 +35,11 @@ library("DataCleaner")
 export outlierLevel(
   series float src,
   simple int len,
-  simple float level)=>
+  simple float level) =>
     if level == 0
         runtime.error('Passing a level of (0) zero to "level" is simply the average.')
-    avg = ta.sma(src, len)
-    std = ta.stdev(src, len)
-    avg + std * level
+    d = calcDeviation(src, len)
+    d.average + d.stdev * level
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
@@ -50,10 +70,9 @@ export normalize(
   simple int len,
   simple int maxDeviation = 4,
   float baseline = 0) =>
-    cleaned = naOutliers(src, maxDeviation)
-    avg = ta.sma(cleaned, len)
-    stdev = ta.stdev(cleaned, len)
-    src / (src >= baseline ? (avg + stdev) : math.abs(avg - stdev))
+    cleaned = naOutliers(src, len, maxDeviation)
+    d = calcDeviation(cleaned, len)
+    src / (src >= baseline ? (d.average + d.stdev) : math.abs(d.average - d.stdev))
 //////////////////////////////////////////////////
 
 //////////////////////////////////////////////////

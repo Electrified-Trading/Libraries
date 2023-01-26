@@ -5,6 +5,14 @@
 // @description Calculates the local upper or local lower limit for a given series.  Applying multiple passes produces what appears like support or resistance levels.
 library('LocalLimit', true)
 
+export type Limit
+    float value
+    int trend
+
+export type Level
+    Limit upper
+    Limit lower
+
 ///////////////////////////////////////////////////
 // @function Produces the recent local upper limit for a given series.
 // @param src The source series to derive from.
@@ -32,7 +40,7 @@ export upper(
                     limit := math.min(limit, valuePrev + nz(padding))
                     0
                 else
-                    2    
+                    2
     limit
 ///////////////////////////////////////////////////
 
@@ -63,10 +71,9 @@ export lower(
                     limit := math.max(limit, valuePrev - nz(padding))
                     0
                 else
-                    2    
+                    2
     limit
 ///////////////////////////////////////////////////
-
 
 ///////////////////////////////////////////////////
 // @function Determines the local trend of a series that and persists the trend if the value is unchanged.
@@ -81,22 +88,50 @@ export trend(series float src) =>
     s
 ///////////////////////////////////////////////////
 
+///////////////////////////////////////////////////
+// @function Creates a Limit object that contains the value and the trend.
+// @param src The source series to derive from.
+export valueAndTrend(series float src) =>
+    Limit.new(src, trend(src))
+///////////////////////////////////////////////////
 
-hi0 = upper(high)
-hi1 = upper(hi0, 0.1)
-hi2 = upper(hi1, 0.5)
+///////////////////////////////////////////////////
+// @function Creates a Level object representing the local upper and lower limits.
+// @param hiSrc The source to discover the upper limit from.
+// @param loSrc The source to discover the lower limit from.
+// @param padding Gives some extra room when raising the lower level and lowering the upper level.
+export of(
+  series float hiSrc = high,
+  series float loSrc = low,
+  float padding = 0) =>
+    hi = valueAndTrend(upper(hiSrc, padding))
+    lo = valueAndTrend(lower(loSrc, padding))
+    Level.new(hi, lo)
+///////////////////////////////////////////////////
 
-lo0 = lower(low)
-lo1 = lower(lo0, 0.1)
-lo2 = lower(lo1, 0.5)
+///////////////////////////////////////////////////
+// @function Creates a Level object representing the local upper and lower limits.
+// @param level The source levels to expand of.
+// @param padding Gives some extra room when raising the lower level and lowering the upper level.
+export of(
+  series Level level,
+  float padding = 0) =>
+    hi = valueAndTrend(upper(level.upper.value, padding))
+    lo = valueAndTrend(lower(level.lower.value, padding))
+    Level.new(hi, lo)
+///////////////////////////////////////////////////
+
+limit0 = of()
+limit1 = of(limit0, 0.1)
+limit2 = of(limit1, 0.5)
 
 hColor = color.yellow
 lColor = color.blue
 
-plot(hi0, "H0", hColor, 1)
-plot(hi1, "H1", hColor, 2)
-plot(hi2, "H2", hColor, 3)
+plot(limit0.upper.value, "H0", hColor, 1)
+plot(limit1.upper.value, "H1", hColor, 2)
+plot(limit2.upper.value, "H2", hColor, 3)
 
-plot(lo0, "L0", lColor, 1)
-plot(lo1, "L1", lColor, 2)
-plot(lo2, "L3", lColor, 3)
+plot(limit0.lower.value, "L0", lColor, 1)
+plot(limit1.lower.value, "L1", lColor, 2)
+plot(limit2.lower.value, "L3", lColor, 3)

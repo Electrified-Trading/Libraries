@@ -140,6 +140,20 @@ _close(
 ////
 
 //////////////////////////////////////////////////
+// @type Simple type for holding high and low values.
+export type HighLow
+    float high
+    float low
+
+//////////////////////////////////////////////////
+// @type Simple type for holding OHLC values.
+export type OpenHighLowClose
+    float open
+    float high
+    float low
+    float close
+
+//////////////////////////////////////////////////
 // @function Gets the open for the number of days prior.
 // @param daysPrior Number of days back to get the open from.
 // @param spec session.regular (default), session.extended or other time spec.
@@ -290,6 +304,35 @@ export HLC3(
     _hlc3(daysPrior, extraForward, spec, res)
 //////////////////////////////////////////////////
 
+//////////////////////////////////////////////////
+// @function Gets the high and low values for the number of days prior.  
+// @param daysPrior Number of days back to get the high and low from.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns The high and low for the number of days prior.
+export HL( 
+  simple int daysPrior = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    HighLow.new(_high(high, daysPrior, spec, res), _low(low, daysPrior, spec, res))
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Gets the OHLC values for the number of days prior.  
+// @param daysPrior Number of days back to get the OHLC from.
+// @param spec session.regular (default), session.extended or other time spec.
+// @param res The resolution (default = '1440').
+// @returns The OHLC for the number of days prior.
+export OHLC( 
+  simple int daysPrior = 0,
+  simple string spec = session.regular,
+  simple string res = '1440') =>
+    OpenHighLowClose.new(
+      _open(daysPrior, spec, res),
+      _high(high, daysPrior, spec, res),
+      _low(low, daysPrior, spec, res),
+      _close(daysPrior, spec, res))
+//////////////////////////////////////////////////
 
 //////////////////////////////////////////////////
 // Array Helpers /////////////////////////////////

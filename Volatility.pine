@@ -4,12 +4,15 @@
 // @version=5
 // @description Functions for determining if volatility (true range) is within or exceeds normal.
 library('Volatility')
-import Electrified/MovingAverages/10 as MA
+import Electrified/MovingAverages/3 as MA
 import Electrified/SessionInfo/9 as Session
 import Electrified/GapDetection/5 as Gap
 
-// The "true range" (ta.tr) is used for measuring volatility.
+// The "True Range" (ta.tr) is used for measuring volatility.
 // Values are normalized by the volume adjusted weighted moving average (VAWMA) to be more like percent moves than price.
+
+trFormula(float H, float L, float Cp) =>
+    math.max(H - L, math.abs(H - Cp), math.abs(L - Cp))
 
 //////////////////////////////////////////////////
 // @function Calculates the true range for a given span of bars. 
@@ -20,52 +23,27 @@ export trueRange(
   simple bool quantized = false) =>
     if span < 1
         runtime.error("The 'span' value must be at least 1.")
-    if span <= 1
+        float(na)
+    else if span == 1
         ta.tr
     else if quantized
         var bar = 0
         bar += 1
         var float tr = na
         if bar % span == 0
-            Cp = close[span]
-            H = ta.highest(high, span)
-            L = na.lowest(low, span)
-            tr := math.max(H - L, H - Cp, Cp - L)
+            tr := trFormula(
+              ta.highest(high, span),
+              ta.lowest(low, span),
+              close[span])
         tr
     else
-        Cp = close[span]
-        H = ta.highest(high, span)
-        L = na.lowest(low, span)
-        math.max(H - L, H - Cp, Cp - L)
+        trFormula(
+          ta.highest(high, span),
+          ta.lowest(low, span),
+          close[span])
 //////////////////////////////////////////////////
 
-//////////////////////////////////////////////////
-// @function Calculates the max range for a given span of bars. 
-// @param span Number of bars measure the max range.
-// @param period When true, the true range is calculated once for every span. When false (default), the true range is calulated for the span on every bar.
-export maxRange(
-  simple int span,
-  simple int period) =>
-    if span < 1
-        runtime.error("The 'span' value must be at least 1.")
-    if span <= 1
-        ta.tr
-    else if quantized
-        var bar = 0
-        bar += 1
-        var float tr = na
-        if bar % span == 0
-            Cp = close[span]
-            H = ta.highest(high, span)
-            L = na.lowest(low, span)
-            tr := math.max(H - L, H - Cp, Cp - L)
-        tr
-    else
-        Cp = close[span]
-        H = ta.highest(high, span)
-        L = na.lowest(low, span)
-        math.max(H - L, H - Cp, Cp - L)
-//////////////////////////////////////////////////
+
 
 //////////////////////////////////////////////////
 // @function Returns the normal upper range of volatility and the normal gap value.
@@ -170,11 +148,11 @@ export severity(
 // Example //////////////////////////////////////// 
 /////////////////////////////////////////////////// 
 
-days = input.int(50, 'Days to Measure', tooltip='The number of days to use in measuring volatility.')
+days = input.int(30, 'Days to Measure', tooltip='The number of days to use in measuring volatility.')
 maxDev = input.float(2, 'Max Deviation', minval=1, tooltip='The limit of volatility before considered an outlier.')
 level = input.float(2, 'Standard Deviation Level', minval=1, tooltip='The amount of standard deviation after cleaning outliers to be considered within normal.')
 
-int len = days * 390 / timeframe.multiplier
+int len = 10 * 390 / timeframe.multiplier
 
 volatility = ta.tr
 normalVol = normal(len, maxDev, level, days)

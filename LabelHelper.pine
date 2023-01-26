@@ -93,7 +93,7 @@ export manage(
   string tooltip = '') =>
 
     label result = na
-    if not na(src) // possible difference duing live session.
+    if not na(src) // possible difference during live session.
         label.delete(src)    
     if not na(src[0])
         label.delete(src[0])
