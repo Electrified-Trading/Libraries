@@ -99,26 +99,21 @@ export triangularWeighted(
 // @function Calculates the exponential average of a set of values where the last value has the highest weight.
 // @param src The array to derive the average from.
 export exponential(float[] src) =>
-    var float notAvailable = na
     len = array.size(src)
     if len == 0
-        notAvailable
+        na // Return 'na' if the array is empty
     else
-        var float emaPrev = na
-        var float s = na
+        float s = na
         float alpha = 2 / (len + 1)
         float a1 = 1 - alpha
-        ema = emaPrev
-        
+        float ema = na // Initialize the EMA variable
         for i = 0 to len - 1
             v = array.get(src, i)
             if not na(v)
                 s := v
-            ema := alpha * s + a1 * nz(ema)
-            if i == 0
-                emaPrev := ema
-
-        ema
+            if not na(s)
+                ema := na(ema) ? s : alpha * v + a1 * ema
+        ema // Return the final EMA value
 ///////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////

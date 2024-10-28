@@ -1,0 +1,283 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified
+
+//@version=5
+
+// @description Allows for simulating trades within an indicator.
+library("Position", overlay = true)
+
+//////////////////////////////////////////////////
+// @type Represents a single trade.
+// @field size Size of the trade in units.
+// @field price Price of the trade in currency.
+// @field value Total value of the trade in currency units.
+// @field time Timestamp of the trade.
+export type Trade
+    float size
+    float price
+	float value
+    int time
+
+//////////////////////////////////////////////////
+// @type Represents a single position.
+// @field size The size of the position.
+// @field price Average price of the position in currency.
+// @field value Total value of the position in currency units.
+// @field start Timestamp of the first trade that opened the position.
+// @field net Realized gains and losses of the position in currency units.
+// @field history Array of trades that make up the position.
+export type Position
+	float size
+	float price
+	float value
+	int start
+    float net
+	Trade[] history
+	
+//////////////////////////////////////////////////	
+// @type The state of a position in one direction
+// @field size The size of the position
+// @field change The change in size
+// @field holding Indicates whether a position is currently being held
+// @field increased Indicates whether the position has increased
+// @field decreased Indicates whether the position has decreased
+export type DirectionState
+	float size
+	float change
+	bool holding
+	bool increased
+	bool decreased
+
+//////////////////////////////////////////////////	
+// @type The bi-directional state of a position
+// @field holding Indicates whether a position is currently being held
+// @field long The state of the long position
+// @field short The state of the short position
+export type State
+	float size
+	float change
+	bool holding
+	DirectionState long
+	DirectionState short
+	float price
+
+newDirState(series float size) =>
+	change = ta.change(math.abs(size))
+	DirectionState.new(size, change, size != 0, change > 0, change < 0)
+
+validate(float size, float price, int time) =>
+    if na(size)
+        runtime.error("size cannot be NA")
+    if na(price)
+        runtime.error("price cannot be NA")	
+    if na(time)
+        runtime.error("time cannot be NA")	
+
+//////////////////////////////////////////////////
+// @function Creates a new trade object.
+// @param size The size of the trade (number of shares or contracts).
+// @param price The price at which the trade took place.
+// @param timestamp The timestamp of the trade. Defaults to the current time.
+// @returns A new trade object.
+export newTrade(float size, float price = close, int timestamp = time) =>
+	validate(size, price, time)
+	Trade.new(size, price, size * price, timestamp)
+
+//////////////////////////////////////////////////
+// @function Starts a new position.
+// @param size The size of the position (number of shares or contracts).
+// @param price The price at which the position was started.
+// @param timestamp The timestamp of the start of the position. Defaults to the current time.
+// @returns A new position object.
+export start(float size, float price = close, int timestamp = time) =>
+	validate(size, price, time)
+	history = array.new<Trade>(1, newTrade(size, price, timestamp))
+	Position.new(size, price, size * price, timestamp, 0, history)
+
+//////////////////////////////////////////////////
+// @function Starts a new (blank) position with no trades.
+// @returns A new position object.
+export start() =>
+	Position.new(0, na, 0, na, 0, array.new<Trade>())
+
+
+//////////////////////////////////////////////////
+// @function Returns the current state of the position.
+// @param posSize the current size of the position.
+export state(float posSize) =>
+	size = nz(posSize)
+	change = ta.change(size)
+	sizeLong = math.min(size, 0)
+	sizeShort = math.max(size, 0)
+	long = newDirState(sizeLong)
+	short = newDirState(sizeShort)
+	State.new(size, change, size != 0, long, short)
+
+//////////////////////////////////////////////////
+// @function Returns the current state of the position.
+// @param pos The position to read the size from.
+export method state(Position pos) =>
+	size = na(pos) ? na : pos.size
+	state(size)
+
+//////////////////////////////////////////////////
+// @function Modifies an existing position.
+// @param pos The position to be modified.
+// @param size The size of the trade (number of shares or contracts).
+// @param price The price at which the trade took place.
+// @param timestamp The timestamp of the trade. Defaults to the current time.
+// @returns The result of the trade. (The state of the position.)
+export method trade(Position pos, float size, float price = close, int timestamp = time) =>
+	if na(pos)
+		runtime.error("cannot modify an NA position")	
+	validate(size, price, time)
+	trade = newTrade(size, price, timestamp)
+	array.push(pos.history, trade)
+	newSize = pos.size + size
+	
+	// Determine if we are increasing or decresing our position as increasing affects the position price and decreasing affects the net.
+	[shrink, flip, longChange, shortChange] = if pos.size > 0 and size < 0
+		s = math.min(pos.size, -size)
+		f = math.min(newSize, 0)
+		[s, f, s, f]
+	else if pos.size < 0 and size > 0
+		s = math.max(pos.size, -size)
+		f = math.max(newSize, 0)
+		[s, f, f, s]
+	else // Expand only?
+		long = size > 0 ? size : 0
+		short = size < 0 ? size : 0
+		[0, 0, long, short]
+
+	if shrink != 0
+		pos.net += shrink * (price - pos.price)
+	
+	// Full exit?
+	if newSize == 0
+		pos.size := 0
+		pos.price := na
+		pos.value := 0
+	
+	// Typical increase or decrease?
+	else if flip == 0
+		pos.size += size
+		pos.value += trade.value
+		if shrink == 0
+			pos.price := pos.value / pos.size
+
+	// Flipped from long to short or vice versa?
+	else
+		pos.size := flip
+		pos.price := price
+		pos.value := flip * price
+
+	State.new(newSize, size, newSize != 0,
+	  DirectionState.new(newSize > 0 ? newSize : 0, longChange, newSize > 0, longChange > 0, longChange < 0),
+	  DirectionState.new(newSize < 0 ? newSize : 0, shortChange, newSize < 0, shortChange < 0, shortChange > 0),
+	  trade.price)
+
+//////////////////////////////////////////////////
+// @function Closes a position by trading the entire position size at a given price and timestamp.
+// @param pos The position being closed.
+// @param price The price at which the position is being closed.
+// @param timestamp The timestamp of the trade, defaults to the current time.
+// @returns The updated position after the trade.
+export method exit(Position pos, float price = close, int timestamp = time) =>
+	if na(pos)
+		runtime.error("cannot modify an NA position")	
+    if na(price)
+        runtime.error("price cannot be NA")	
+    if na(time)
+        runtime.error("time cannot be NA")	
+	trade(pos, -pos.size, price, timestamp)
+
+//////////////////////////////////////////////////
+// @function Calculates the unrealized gain or loss for a given position and price.
+// @param pos The position for which to calculate unrealized gain/loss.
+// @param price The current market price.
+// @returns The calculated unrealized gain or loss.
+export method unrealized(Position pos, float price = close) =>
+	if na(pos)
+		0.0
+    else if na(price)
+        runtime.error("price cannot be NA")
+		0.0
+	else
+	    pos.size == 0 ? 0.0 : pos.size * (price - pos.price)
+
+//////////////////////////////////////////////////
+// @function Returns the number of shares held by a position.
+// @param pos The position for which to read the size.  A value of NA will return zero.
+export method size(Position pos) =>
+	na(pos) ? 0.0 : pos.size
+
+//////////////////////////////////////////////////
+// @function Returns true if the position has shares.
+// @param pos The position for which to read the size.  A value of NA will return false.
+export method isActive(Position pos) =>
+	na(pos) ? false : nz(pos.size) != 0
+
+//////////////////////////////////////////////////
+// @function Creates a lablel if a trade was made.
+// @param pos The position.
+// @param ts The state of the position or result of the trade to generate a label from.
+// @returns The label that was generated or na if none.
+export addLabel(Position pos, State ts, string details = na) =>
+	label lbl = na
+	if na(pos) or na(ts)
+		lbl
+	else
+		if ts.change > 0
+			s = array.new_string()
+			s.push(str.format("+{0,number}", ts.change))
+			if ts.short.change != 0
+				s.push(ts.short.size==0 ? "S:0" : str.format("S:{0, number}", -ts.short.size))
+			if ts.long.change != 0
+				s.push(str.format("\:{0, number}", ts.long.size))
+
+			lbl := label.new(time, low, s.join("\n"), xloc.bar_time, yloc.price, #006600, label.style_label_up, color.white)
+		else if ts.change < 0
+			s = array.new_string()
+			s.push(str.format("{0,number}", ts.change))
+			if ts.long.change != 0
+				s.push(str.format("L:{0, number}", ts.long.size))
+			if ts.short.change != 0
+				s.push(ts.short.size==0 ? "S:0" : str.format("S:{0, number}", -ts.short.size))
+
+			lbl := label.new(time, high, s.join("\n"), xloc.bar_time, yloc.price, #660000, label.style_label_down, color.white)
+
+		tooltip = array.new_string()
+		tooltip.push(str.format(ts.change > 0 ? "+{0,number} @ {1,number,currency}" : "{0,number} @ {1,number,currency}", ts.change, ts.price))
+		if ts.price != pos.price
+			tooltip.push(str.format("Average: {0,number,currency}", pos.price))
+		if pos.net != 0
+			tooltip.push(str.format("Realized: {0,number,currency}", pos.net))
+		if not na(details)
+			tooltip.push(str.format("\n{0}", details))
+		
+		label.set_tooltip(lbl, tooltip.join("\n"))
+		lbl
+
+//////////////////////////////////////////////////
+//// Demo ////////////////////////////////////////
+//////////////////////////////////////////////////
+
+var pos = start()
+posState = state(pos)
+tradeSize = posState.holding ? 2 : 1
+
+fast = ta.wma(hlc3, 100)
+slow = ta.wma(hlc3, 150)
+
+longSignal = ta.crossover(fast, slow)
+shortSignal = ta.crossunder(fast, slow)
+
+plot(pos.size(), "Size", display = display.status_line)
+
+State ts = na
+if longSignal
+	ts := pos.trade(+tradeSize)
+else if shortSignal
+	ts := pos.trade(-tradeSize)
+
+addLabel(pos, ts)
