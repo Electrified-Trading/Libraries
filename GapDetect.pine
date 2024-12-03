@@ -1,11 +1,11 @@
 // This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © Electrified (electrifiedtrading)
 
-//@version=5
+//@version=6
 
 // @description Helps in determining opening gap severity by measuring the standard deviation of the open minus the previous close.
-library("GapDetection", false)
-import Electrified/SessionInfo/9 as Session
+library('GapDetect', false)
+import Electrified/SessionInfo/11 as Session
 
 ///////////////////////////////////////////////////
 //// Gap Detection ////////////////////////////////
@@ -59,12 +59,12 @@ export todayPercent(
 
 //////////////////////////////////////////////////
 // @function Returns the normal daily standard deviation of the overnight gap value.
-// @param len Number of days back to measure.
+// @param days Number of days back to measure.
 // @param maxDeviation The limit of volatility before considered an outlier.
 // @param spec session.regular (default), session.extended or other time spec.
 // @param res The resolution (default = '1440').
 export normal(
-  simple int len,
+  simple int days,
   simple float maxDeviation = 2,
   simple string spec = session.regular,
   simple string res = '1440') =>
@@ -75,7 +75,7 @@ export normal(
     if(Session.isFirstBar(spec, res))
         array.push(delta, value)
 
-    if(array.size(delta) > len)
+    if(array.size(delta) > days)
         array.shift(delta)
         avg = array.avg(delta)
         stdev = array.stdev(delta)
@@ -84,19 +84,19 @@ export normal(
         lo = avg - level
         if lo < value or value < hi
             array.push(result, value)
-        if(array.size(result) > len)
+        if(array.size(result) > days)
             array.shift(result)
 
     array.stdev(result)
 ///////////////////////////////////////////////////
 
 // @function Returns the normal daily standard deviation of the overnight gap (% move).
-// @param len Number of days back to measure.
+// @param days Number of days back to measure.
 // @param maxDeviation The limit of volatility before considered an outlier.
 // @param spec session.regular (default), session.extended or other time spec.
 // @param res The resolution (default = '1440').
 export normalPercent(
-  simple int len,
+  simple int days,
   simple float maxDeviation = 2,
   simple string spec = session.regular,
   simple string res = '1440') =>
@@ -107,7 +107,7 @@ export normalPercent(
     if(Session.isFirstBar(spec, res))
         array.push(delta, value)
 
-    if(array.size(delta) > len)
+    if(array.size(delta) > days)
         array.shift(delta)
         avg = array.avg(delta)
         stdev = array.stdev(delta)
@@ -116,7 +116,7 @@ export normalPercent(
         lo = avg - level
         if lo < value or value < hi
             array.push(result, value)
-        if(array.size(result) > len)
+        if(array.size(result) > days)
             array.shift(result)
 
     array.stdev(result)
@@ -124,16 +124,16 @@ export normalPercent(
 
 //////////////////////////////////////////////////
 // @function Returns the severity of the overnight in ratios of the normal standard deviation.
-// @param len Number of days back to measure.
+// @param days Number of days back to measure.
 // @param maxDeviation The limit of volatility before considered an outlier.
 // @param spec session.regular (default), session.extended or other time spec.
 // @param res The resolution (default = '1440').
 export severity(
-  simple int len,
+  simple int days,
   simple float maxDeviation = 2, 
   simple string spec = session.regular,
   simple string res = '1440') =>
-    todayPercent(spec, res) / normalPercent(len, maxDeviation, spec, res)
+    todayPercent(spec, res) / normalPercent(days, maxDeviation, spec, res)
 ///////////////////////////////////////////////////
 
 hline(+2)
@@ -142,6 +142,6 @@ hline(0, linestyle=hline.style_solid)
 hline(-1)
 hline(-2)
 
-s = severity(input.int(50, "Days to Measure", minval=3))
+s = severity(input.int(50, 'Days to Measure', minval=3))
 c = s < 0 ? color.red : color.green
-plot(s, "Gap Severity", c, style=plot.style_areabr)
+plot(s, 'Gap Severity', c, style=plot.style_areabr)
