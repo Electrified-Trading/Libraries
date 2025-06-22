@@ -1,7 +1,7 @@
 // This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © Electrified
 
-//@version=5
+// @version=6
 
 // @description Allows for simulating trades within an indicator.
 library("Position", overlay = true)
@@ -33,8 +33,8 @@ export type Position
 	int start
     float net
 	Trade[] history
-	
-//////////////////////////////////////////////////	
+
+//////////////////////////////////////////////////
 // @type The state of a position in one direction
 // @field size The size of the position
 // @field change The change in size
@@ -48,7 +48,7 @@ export type DirectionState
 	bool increased
 	bool decreased
 
-//////////////////////////////////////////////////	
+//////////////////////////////////////////////////
 // @type The bi-directional state of a position
 // @field holding Indicates whether a position is currently being held
 // @field long The state of the long position
@@ -69,9 +69,9 @@ validate(float size, float price, int time) =>
     if na(size)
         runtime.error("size cannot be NA")
     if na(price)
-        runtime.error("price cannot be NA")	
+        runtime.error("price cannot be NA")
     if na(time)
-        runtime.error("time cannot be NA")	
+        runtime.error("time cannot be NA")
 
 //////////////////////////////////////////////////
 // @function Creates a new trade object.
@@ -129,12 +129,12 @@ export method state(Position pos) =>
 // @returns The result of the trade. (The state of the position.)
 export method trade(Position pos, float size, float price = close, int timestamp = time) =>
 	if na(pos)
-		runtime.error("cannot modify an NA position")	
+		runtime.error("cannot modify an NA position")
 	validate(size, price, time)
 	trade = newTrade(size, price, timestamp)
 	array.push(pos.history, trade)
 	newSize = pos.size + size
-	
+
 	// Determine if we are increasing or decresing our position as increasing affects the position price and decreasing affects the net.
 	[shrink, flip, longChange, shortChange] = if pos.size > 0 and size < 0
 		s = math.min(pos.size, -size)
@@ -151,13 +151,13 @@ export method trade(Position pos, float size, float price = close, int timestamp
 
 	if shrink != 0
 		pos.net += shrink * (price - pos.price)
-	
+
 	// Full exit?
 	if newSize == 0
 		pos.size := 0
 		pos.price := na
 		pos.value := 0
-	
+
 	// Typical increase or decrease?
 	else if flip == 0
 		pos.size += size
@@ -184,11 +184,11 @@ export method trade(Position pos, float size, float price = close, int timestamp
 // @returns The updated position after the trade.
 export method exit(Position pos, float price = close, int timestamp = time) =>
 	if na(pos)
-		runtime.error("cannot modify an NA position")	
+		runtime.error("cannot modify an NA position")
     if na(price)
-        runtime.error("price cannot be NA")	
+        runtime.error("price cannot be NA")
     if na(time)
-        runtime.error("time cannot be NA")	
+        runtime.error("time cannot be NA")
 	trade(pos, -pos.size, price, timestamp)
 
 //////////////////////////////////////////////////
@@ -254,7 +254,7 @@ export addLabel(Position pos, State ts, string details = na) =>
 			tooltip.push(str.format("Realized: {0,number,currency}", pos.net))
 		if not na(details)
 			tooltip.push(str.format("\n{0}", details))
-		
+
 		label.set_tooltip(lbl, tooltip.join("\n"))
 		lbl
 
