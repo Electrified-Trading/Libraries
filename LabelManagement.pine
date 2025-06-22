@@ -1,0 +1,452 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified
+
+// @version=6
+// @description Advanced label management library with fluent configuration, change tracking, and named registry. Makes managing 'sticky' labels easy through expressive fluent APIs, deferred batch changes, and centralized label registries.
+library("LabelManagement", overlay=true)
+
+///////////////////////////////////////////////////
+// OVERVIEW & USAGE EXAMPLES
+///////////////////////////////////////////////////
+//
+// This library provides three main components for advanced label management:
+//
+// 1. LabelConfig - Template-based configuration objects
+// 2. LabelUpdater - Smart updaters with change tracking
+// 3. LabelManager - Named registry for persistent label management
+//
+// BASIC USAGE PATTERNS:
+//
+// // Pattern 1: Direct label updates with fluent API
+// myLabel = label.new(bar_index, close, "")
+// myLabel.update()
+//     .xy(bar_index, high)
+//     .textValue("🚀")
+//     .bgColor(color.green)
+//     .textColor(color.white)
+//     .apply()
+//
+// // Pattern 2: Template-based configuration
+// config = LabelConfig.new()
+// config.textValue := "Signal"
+// config.bgColor := color.blue
+// config.applyTo(myLabel)
+//
+// // Pattern 3: Named registry for persistent labels
+// var manager = LabelManagement.newManager()
+// manager.get("entry")
+//   .xy(bar_index, low)
+//   .textValue("ENTRY")
+//   .bgColor(color.lime)
+//   .apply()
+//
+// ADVANCED FEATURES:
+//
+// • Change tracking: Only applies properties that actually changed
+// • Deferred updates: Build configuration incrementally, apply once
+// • Named access: Get labels by string identifiers instead of variables
+// • Template reuse: Apply same configuration to multiple labels
+// • Performance optimized: Minimal Pine Script API calls through smart diffing
+//
+// TYPICAL STICKY LABEL WORKFLOW:
+//
+// var labels = newManager()
+//
+// // Update label position and content each bar
+// if show_signals
+//     labels.get("signal")
+//       .xy(bar_index, signal_price)
+//       .textValue(signal_emoji)
+//       .bgColor(signal_color)
+//       .apply()
+
+///////////////////////////////////////////////////
+// EXPORTED TYPES
+///////////////////////////////////////////////////
+
+// @type LabelConfig Configuration object for label appearance and positioning
+// @field x (series int) X-coordinate (na = unchanged)
+// @field y (series float) Y-coordinate (na = unchanged)
+// @field textValue (series string) Label text content (na = unchanged)
+// @field style (series string) Label style (na = unchanged)
+// @field yloc (series string) Y-location type (na = unchanged)
+// @field xloc (series string) X-location type (na = unchanged)
+// @field bgColor (series color) Background color (na = unchanged)
+// @field textColor (series color) Text color (na = unchanged)
+// @field textSize (series string) Text size (na = unchanged)
+// @field tooltip (series string) Tooltip text (na = unchanged)
+export type LabelConfig
+    int x
+    float y
+    string style
+    string yloc
+    string xloc
+    color bgColor
+    string textValue
+    string textSize
+    color textColor
+    string tooltip
+
+// @type LabelUpdater Smart label updater with change tracking and minimal updates
+// @field label (label) Reference to the label being updated
+// @field latest (LabelConfig) Current known state of the label
+// @field updates (LabelConfig) Pending changes to apply
+export type LabelUpdater
+    label label
+    LabelConfig latest
+    LabelConfig updates
+
+// @type LabelManager Central registry for managing named labels with automatic creation
+// @field registry (map<string, LabelUpdater>) Internal storage mapping names to LabelUpdater instances
+export type LabelManager
+    map<string, LabelUpdater> registry
+
+///////////////////////////////////////////////////
+// LABELCONFIG METHODS
+///////////////////////////////////////////////////
+
+// @function Creates a new LabelConfig by copying all properties from this instance
+// @param this (LabelConfig) The LabelConfig instance
+// @returns (LabelConfig) New LabelConfig instance with identical properties
+export method clone(LabelConfig this) =>
+    LabelConfig.new(
+      x = this.x,
+      y = this.y,
+      textValue = this.textValue,
+      style = this.style,
+      yloc = this.yloc,
+      xloc = this.xloc,
+      bgColor = this.bgColor,
+      textColor = this.textColor,
+      textSize = this.textSize,
+      tooltip = this.tooltip)
+
+// @function Applies configuration to specified label (required parameter)
+// @param this (LabelConfig) The LabelConfig instance
+// @param target (label) Label to apply config to
+// @returns (LabelConfig) Self-reference for method chaining
+export method applyTo(LabelConfig this, label target) =>
+
+    if not na(this.yloc)
+        label.set_yloc(target, this.yloc)
+
+    if not na(this.xloc)
+        label.set_xloc(target, na(this.x) ? target.get_x() : this.x, this.xloc)
+    else if not na(this.x)
+        label.set_x(target, this.x)
+
+    if not na(this.y)
+        label.set_y(target, this.y)
+
+    if not na(this.textValue)
+        label.set_text(target, this.textValue)
+
+    if not na(this.style)
+        label.set_style(target, this.style)
+
+    if not na(this.bgColor)
+        label.set_color(target, this.bgColor)
+
+    if not na(this.textColor)
+        label.set_textcolor(target, this.textColor)
+
+    if not na(this.textSize)
+        label.set_size(target, this.textSize)
+
+    if not na(this.tooltip)
+        label.set_tooltip(target, this.tooltip)
+
+    this
+
+///////////////////////////////////////////////////
+// LABEL EXTENSIONS
+///////////////////////////////////////////////////
+
+// @function Creates a new LabelUpdater with change tracking for this label
+// @param this (label) The label instance
+// @param updates (LabelConfig) Optional existing config to apply and reuse (if provided, applies to label first)
+// @returns (LabelUpdater) New LabelUpdater with blank configs for change tracking
+export method update(label this, LabelConfig updates = na) =>
+    if not na(updates)
+        updates.applyTo(this)
+
+    LabelUpdater.new(
+      label = this,
+      latest = na(updates) ? LabelConfig.new() : updates.clone(),
+      updates = LabelConfig.new())
+
+///////////////////////////////////////////////////
+// LABELUPDATER FLUENT METHODS
+///////////////////////////////////////////////////
+
+// POSITION METHODS
+// @function Sets the X coordinate with change tracking (fluent interface)
+// @param this (LabelUpdater) The LabelUpdater instance
+// @param value (int) New X coordinate
+// @returns (LabelUpdater) Self-reference for method chaining
+export method x(LabelUpdater this, int value) =>
+    if na(this.latest.x) or this.latest.x != value
+        this.updates.x := value
+    this
+
+// @function Sets the Y coordinate with change tracking (fluent interface)
+// @param this (LabelUpdater) The LabelUpdater instance
+// @param value (float) New Y coordinate
+// @returns (LabelUpdater) Self-reference for method chaining
+export method y(LabelUpdater this, float value) =>
+    if na(this.latest.y) or this.latest.y != value
+        this.updates.y := value
+    this
+
+// @function Sets both X and Y coordinates with change tracking (fluent interface)
+// @param this (LabelUpdater) The LabelUpdater instance
+// @param x (int) New X coordinate
+// @param y (float) New Y coordinate
+// @returns (LabelUpdater) Self-reference for method chaining
+export method xy(LabelUpdater this, int x, float y) =>
+    if na(this.latest.x) or this.latest.x != x
+        this.updates.x := x
+    if na(this.latest.y) or this.latest.y != y
+        this.updates.y := y
+    this
+
+// TEXT METHODS
+// @function Sets the text content with change tracking (fluent interface)
+// @param this (LabelUpdater) The LabelUpdater instance
+// @param value (string) New text content
+// @returns (LabelUpdater) Self-reference for method chaining
+export method textValue(LabelUpdater this, string value) =>
+    if na(this.latest.textValue) or this.latest.textValue != value
+        this.updates.textValue := value
+    this
+
+// @function Sets the text color with change tracking (fluent interface)
+// @param this (LabelUpdater) The LabelUpdater instance
+// @param value (color) New text color
+// @returns (LabelUpdater) Self-reference for method chaining
+export method textColor(LabelUpdater this, color value) =>
+    if na(this.latest.textColor) or this.latest.textColor != value
+        this.updates.textColor := value
+    this
+
+// @function Sets the text size with change tracking (fluent interface)
+// @param this (LabelUpdater) The LabelUpdater instance
+// @param value (string) New text size
+// @returns (LabelUpdater) Self-reference for method chaining
+export method textSize(LabelUpdater this, string value) =>
+    if na(this.latest.textSize) or this.latest.textSize != value
+        this.updates.textSize := value
+    this
+
+// VISUAL STYLE METHODS
+// @function Sets the background color with change tracking (fluent interface)
+// @param this (LabelUpdater) The LabelUpdater instance
+// @param value (color) New background color
+// @returns (LabelUpdater) Self-reference for method chaining
+export method bgColor(LabelUpdater this, color value) =>
+    if na(this.latest.bgColor) or this.latest.bgColor != value
+        this.updates.bgColor := value
+    this
+
+// @function Sets the label style with change tracking (fluent interface)
+// @param this (LabelUpdater) The LabelUpdater instance
+// @param value (string) New style
+// @returns (LabelUpdater) Self-reference for method chaining
+export method style(LabelUpdater this, string value) =>
+    if na(this.latest.style) or this.latest.style != value
+        this.updates.style := value
+    this
+
+// @function Sets the Y location mode with change tracking (fluent interface)
+// @param this (LabelUpdater) The LabelUpdater instance
+// @param value (string) New yloc
+// @returns (LabelUpdater) Self-reference for method chaining
+export method yloc(LabelUpdater this, string value) =>
+    if na(this.latest.yloc) or this.latest.yloc != value
+        this.updates.yloc := value
+    this
+
+// @function Sets the X location mode with change tracking (fluent interface)
+// @param this (LabelUpdater) The LabelUpdater instance
+// @param value (string) New xloc
+// @returns (LabelUpdater) Self-reference for method chaining
+export method xloc(LabelUpdater this, string value) =>
+    if na(this.latest.xloc) or this.latest.xloc != value
+        this.updates.xloc := value
+    this
+
+// UTILITY METHODS
+// @function Sets the tooltip content with change tracking (fluent interface)
+// @param this (LabelUpdater) The LabelUpdater instance
+// @param value (string) New tooltip content
+// @returns (LabelUpdater) Self-reference for method chaining
+export method tooltip(LabelUpdater this, string value) =>
+    if na(this.latest.tooltip) or this.latest.tooltip != value
+        this.updates.tooltip := value
+    this
+
+// @function Sets the text size with change tracking (fluent interface) - alias for textSize
+// @param this (LabelUpdater) The LabelUpdater instance
+// @param value (string) New text size
+// @returns (LabelUpdater) Self-reference for method chaining
+export method size(LabelUpdater this, string value) =>
+    this.textSize(value)
+
+// @function Applies pending changes to linked label and updates tracking
+// @param this (LabelUpdater) The LabelUpdater instance
+// @returns (LabelUpdater) Self-reference for method chaining
+export method apply(LabelUpdater this) =>
+    // Apply only the pending changes
+    if not na(this.updates.xloc)
+        x = na(this.updates.x) ? this.label.get_x() : this.updates.x
+        label.set_xloc(this.label, x, this.updates.xloc)
+        this.latest.xloc := this.updates.xloc
+        this.updates.xloc := na
+        if not na(this.updates.x)
+            this.latest.x := x
+            this.updates.x := na
+    else if not na(this.updates.x)
+        label.set_x(this.label, this.updates.x)
+        this.latest.x := this.updates.x
+        this.updates.x := na
+
+    if not na(this.updates.y)
+        label.set_y(this.label, this.updates.y)
+        this.latest.y := this.updates.y
+        this.updates.y := na
+
+    if not na(this.updates.textValue)
+        label.set_text(this.label, this.updates.textValue)
+        this.latest.textValue := this.updates.textValue
+        this.updates.textValue := na
+
+    if not na(this.updates.style)
+        label.set_style(this.label, this.updates.style)
+        this.latest.style := this.updates.style
+        this.updates.style := na
+
+    if not na(this.updates.yloc)
+        label.set_yloc(this.label, this.updates.yloc)
+        this.latest.yloc := this.updates.yloc
+        this.updates.yloc := na
+
+    if not na(this.updates.bgColor)
+        label.set_color(this.label, this.updates.bgColor)
+        this.latest.bgColor := this.updates.bgColor
+        this.updates.bgColor := na
+
+    if not na(this.updates.textColor)
+        label.set_textcolor(this.label, this.updates.textColor)
+        this.latest.textColor := this.updates.textColor
+        this.updates.textColor := na
+
+    if not na(this.updates.textSize)
+        label.set_size(this.label, this.updates.textSize)
+        this.latest.textSize := this.updates.textSize
+        this.updates.textSize := na
+
+    if not na(this.updates.tooltip)
+        label.set_tooltip(this.label, this.updates.tooltip)
+        this.latest.tooltip := this.updates.tooltip
+        this.updates.tooltip := na
+
+    this
+
+///////////////////////////////////////////////////
+// LABELMANAGER METHODS
+///////////////////////////////////////////////////
+
+// @function Gets or creates a LabelUpdater for the specified name
+// @param this (LabelManager) The LabelManager instance
+// @param name (string) Unique identifier for the label
+// @returns (LabelUpdater) Existing or newly created LabelUpdater for the name
+export method get(LabelManager this, string name) =>
+    if this.registry.contains(name)
+        // Return existing LabelUpdater
+        this.registry.get(name)
+    else
+        // Create new label and LabelUpdater, register and return
+        newLabel = label.new(bar_index, close, "", size=size.normal)
+        newUpdater = newLabel.update()
+        this.registry.put(name, newUpdater)
+        newUpdater
+
+// @function Checks if a label with the specified name exists
+// @param this (LabelManager) The LabelManager instance
+// @param name (string) Name to check for existence
+// @returns (bool) True if label exists, false otherwise
+export method has(LabelManager this, string name) =>
+    this.registry.contains(name)
+
+// @function Removes a label from the registry and deletes the underlying Pine Script label
+// @param this (LabelManager) The LabelManager instance
+// @param name (string) Name of the label to remove
+// @returns (LabelManager) Self-reference for method chaining
+export method remove(LabelManager this, string name) =>
+    if this.registry.contains(name)
+        updater = this.registry.get(name)
+        label.delete(updater.label)  // Delete the actual Pine Script label
+        this.registry.remove(name)   // Remove from registry
+    this
+
+// @function Gets the count of registered labels
+// @param this (LabelManager) The LabelManager instance
+// @returns (int) Number of labels in the registry
+export method size(LabelManager this) =>
+    this.registry.size()
+
+// @function Removes all labels from registry and deletes all underlying Pine Script labels
+// @param this (LabelManager) The LabelManager instance
+// @returns (LabelManager) Self-reference for method chaining
+export method clear(LabelManager this) =>
+    // Delete all Pine Script labels before clearing registry
+    for [name, updater] in this.registry
+        label.delete(updater.label)
+    this.registry.clear()
+    this
+
+///////////////////////////////////////////////////
+// FACTORY FUNCTIONS
+///////////////////////////////////////////////////
+
+// @function Creates a new LabelManager with empty registry
+// @returns (LabelManager) New LabelManager instance ready for use
+export newManager() =>
+    LabelManager.new(registry = map.new<string, LabelUpdater>())
+
+///////////////////////////////////////////////////
+// DEMO / EXAMPLE USAGE
+///////////////////////////////////////////////////
+
+// Demo: Create persistent labels for high, low, and close
+var labels = newManager()
+if(barstate.islast)
+    // High label - above the last bar
+    labels.get("high")
+      .style(label.style_label_lower_left)
+      .bgColor(color.yellow)
+      .xy(bar_index, high)
+      .textValue("H: " + str.tostring(high, "#.##"))
+      .textColor(color.black)
+      .tooltip("This is the high price")
+      .apply()
+
+    // Low label - below the last bar
+    labels.get("low")
+      .style(label.style_label_upper_left)
+      .bgColor(color.blue)
+      .xy(bar_index, low)
+      .textValue("L: " + str.tostring(low, "#.##"))
+      .textColor(color.white)
+      .tooltip("This is the low price")
+      .apply()
+
+    // Close label - to the right of the last bar
+    labels.get("close")
+      .style(label.style_label_left)
+      .bgColor(color.gray)
+      .xy(bar_index, close)
+      .textValue("C: " + str.tostring(close, "#.##"))
+      .textColor(color.white)
+      .tooltip("This is the close price")
+      .apply()
