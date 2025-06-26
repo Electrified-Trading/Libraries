@@ -1,7 +1,7 @@
 // This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © Electrified (electrifiedtrading)
 
-// @version=5
+// @version=6
 // @description Contains utilities for generating moving average values including getting a moving average by name and a function for generating a Volume-Adjusted WMA.
 library('MovingAverages', true)
 
@@ -10,8 +10,8 @@ isLenInvalid(simple int len, simple string name = 'len') =>
         runtime.error("The '"+name+"' param cannot be NA.")
         true
     else if len < 0
-        runtime.error("The '"+name+"' param cannot be negative.") 
-        true       
+        runtime.error("The '"+name+"' param cannot be negative.")
+        true
     else if len == 0
         true
     else
@@ -27,7 +27,7 @@ isLenInvalid(simple int len, simple string name = 'len') =>
 // @function VAWMA = VWMA and WMA combined. Simply put, this attempts to determine the average price per share over time weighted heavier for recent values. Uses a triangular algorithm to taper off values in the past (same as WMA does).
 // @param len The number of bars to measure with.
 // @param src The series to measure from.  Default is 'hlc3'.
-// @param volumeDefault The default value to use when a chart has no (N/A) volume. 
+// @param volumeDefault The default value to use when a chart has no (N/A) volume.
 // @returns The volume adjusted triangular weighted moving average of the series.
 export vawma(
   simple int len,
@@ -37,7 +37,7 @@ export vawma(
     var float notAvailable = na
     if isLenInvalid(len)
         notAvailable
-    else  
+    else
         sum = 0.0
         vol = 0.0
         last = len - 1
@@ -68,7 +68,7 @@ export cma(
     var float notAvailable = na
     if isLenInvalid(n, 'n')
         notAvailable
-    else 
+    else
         var float result = na
         sum = 0.0
         weight = 1.0
@@ -101,7 +101,7 @@ export ema(
     var float notAvailable = na
     if isLenInvalid(len)
         notAvailable
-    else 
+    else
         var float alpha = 2 / (len + 1)
         var float a1 = 1 - alpha
         var float s = na
@@ -140,7 +140,7 @@ export wma(
 // @function Same as ta.vwma(src,len) but properly ignores NA values.
 // @param len The number of bars to measure with.
 // @param src The series to measure from.  Default is 'hlc3'.
-// @param volumeDefault The default value to use when a chart has no (N/A) volume. 
+// @param volumeDefault The default value to use when a chart has no (N/A) volume.
 export vwma(
   simple int len,
   series float src = hlc3,
@@ -194,23 +194,23 @@ import Electrified/Time/7
 // @param releaseRatio The ratio at which data is released from the average.
 // @param useTime When true will tend to make the values consistent across timeframes.
 // @param src The series to measure from.  Default is 'hlc3'.
-// @param volumeDefault The default value to use when a chart has no (N/A) volume. 
+// @param vol The series to represent volume.  The default is 'volume'.
 export rsvwma(
   simple float transferRatio,
   simple float releaseRatio,
   simple bool useTime,
   series float src = hlc3,
-  float volumeDefault = volume) =>
+  float vol = volume) =>
     var retainRatio = 1 - releaseRatio
     var minutesPerBar = Time.bar() / 1000 / 60
     var m = useTime ? minutesPerBar : 1
     var r = math.pow(1 - transferRatio, m)
-    
+
     var active = VWAP.new(0, 0, 0)
     var surplus = VWAP.new(0, 0, 0)
 
-    s = surplus.sum + src * volumeDefault
-    v = surplus.volume + volumeDefault
+    s = surplus.sum + nz(src * vol)
+    v = surplus.volume + (na(src) ? 0 : nz(vol))
     transfer = vwap(s, v, 1 - r)
     surplus := vwap(s, v, r)
     active := sum(active, transfer, math.pow(retainRatio, m))
@@ -218,7 +218,23 @@ export rsvwma(
     active.value
 ///////////////////////////////////////////////////
 
-SMA = 'SMA', EMA = 'EMA', WMA = 'WMA', CMA = 'CMA', VWMA = 'VWMA', VAWMA = 'VAWMA'
+const string SMA = 'SMA'
+const string EMA = 'EMA'
+const string WMA = 'WMA'
+const string CMA = 'CMA'
+const string VWMA = 'VWMA'
+const string VAWMA = 'VAWMA'
+
+///////////////////////////////////////////////////
+// Moving Average Types
+///////////////////////////////////////////////////
+export enum Type
+    SMA = 'SMA'
+    EMA = 'EMA'
+    WMA = 'WMA'
+    CMA = 'CMA'
+    VWMA = 'VWMA'
+    VAWMA = 'VAWMA'
 
 ///////////////////////////////////////////////////
 // @function Generates a moving average based upon a 'type'.
@@ -239,7 +255,62 @@ export get(
         SMA => ta.sma(src, len)
         =>
             runtime.error("No matching MA type found.")
-            ta.sma(src, len)
+            na
+///////////////////////////////////////////////////
+
+///////////////////////////////////////////////////
+// @function Generates a moving average based upon a 'type' (enum overload).
+// @param type The type of moving average to generate as a Type enum. Values allowed are: Type.SMA, Type.EMA, Type.WMA, Type.VWMA, Type.VAWMA, Type.CMA.
+// @param len The number of bars to measure with.
+// @param src The series to measure from.  Default is 'close'.
+// @returns The moving average series requested.
+export get(
+  simple Type type,
+  simple int len,
+  series float src = close) =>
+    get(str.tostring(type), len, src)
+///////////////////////////////////////////////////
+
+getLevels(float[] values) =>
+    avg = math.abs(array.avg(values))
+    stdev = array.stdev(values)
+    [avg + stdev, stdev]
+
+///////////////////////////////////////////////////
+// @function The slope of the source (change over time) is measured over the mLen to determine what is considered 'normal'. A positive value less than 1 is considered within 1 standard deviation.  A value less than 2 is within 2 standard deviations and so-on. This allows for the slope of a value to be standardized regardless of the symbol.
+// @param source The series (typically a moving average) to meaasue the slope.
+// @param mlen The number of bars to measure the standard deviation of the slope.
+// @param slopeLen The number of bars to measure the slope. A higher number will smooth out the curve.
+// @returns The nromalized value of the slope.
+export normalizeSlope(series float source, simple int mLen = 400, simple int slopeLen = 1) =>
+    var pos = array.new_float()
+    var neg = array.new_float()
+
+    change = ta.change(source, slopeLen)
+    if(change > 0)
+        array.push(pos, change)
+        if array.size(pos) > mLen
+            array.shift(pos)
+    if(change < 0)
+        array.push(neg, change)
+        if array.size(neg) > mLen
+            array.shift(neg)
+
+    [pos_level1, pos_stdev] = getLevels(pos)
+    [neg_level1, neg_stdev] = getLevels(neg)
+
+    if change > 0
+        if(change < pos_level1)
+            change / pos_level1
+        else
+            (change - pos_level1) / pos_stdev + 1
+    else if change < 0
+        if(change > -neg_level1)
+            change / neg_level1
+        else
+            (change + neg_level1) / neg_stdev - 1
+    else
+        0
 ///////////////////////////////////////////////////
 
 // Demo
