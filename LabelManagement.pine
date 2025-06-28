@@ -67,24 +67,24 @@ library("LabelManagement", overlay=true)
 // @type LabelConfig Configuration object for label appearance and positioning
 // @field x (series int) X-coordinate (na = unchanged)
 // @field y (series float) Y-coordinate (na = unchanged)
-// @field textValue (series string) Label text content (na = unchanged)
-// @field style (series string) Label style (na = unchanged)
-// @field yloc (series string) Y-location type (na = unchanged)
 // @field xloc (series string) X-location type (na = unchanged)
+// @field yloc (series string) Y-location type (na = unchanged)
+// @field size (series string) Text size (na = unchanged)
+// @field style (series string) Label style (na = unchanged)
 // @field bgColor (series color) Background color (na = unchanged)
 // @field textColor (series color) Text color (na = unchanged)
-// @field textSize (series string) Text size (na = unchanged)
+// @field textValue (series string) Label text content (na = unchanged)
 // @field tooltip (series string) Tooltip text (na = unchanged)
 export type LabelConfig
     int x
     float y
-    string style
-    string yloc
     string xloc
+    string yloc
+    string size
+    string style
     color bgColor
-    string textValue
-    string textSize
     color textColor
+    string textValue
     string tooltip
 
 // @type LabelUpdater Smart label updater with change tracking and minimal updates
@@ -110,16 +110,16 @@ export type LabelManager
 // @returns (LabelConfig) New LabelConfig instance with identical properties
 export method clone(LabelConfig this) =>
     LabelConfig.new(
-      x = this.x,
-      y = this.y,
-      textValue = this.textValue,
-      style = this.style,
-      yloc = this.yloc,
-      xloc = this.xloc,
-      bgColor = this.bgColor,
-      textColor = this.textColor,
-      textSize = this.textSize,
-      tooltip = this.tooltip)
+      this.x,
+      this.y,
+      this.xloc,
+      this.yloc,
+      this.size,
+      this.style,
+      this.bgColor,
+      this.textColor,
+      this.textValue,
+      this.tooltip)
 
 // @function Applies configuration to specified label (required parameter)
 // @param this (LabelConfig) The LabelConfig instance
@@ -150,8 +150,8 @@ export method applyTo(LabelConfig this, label target) =>
     if not na(this.textColor)
         label.set_textcolor(target, this.textColor)
 
-    if not na(this.textSize)
-        label.set_size(target, this.textSize)
+    if not na(this.size)
+        label.set_size(target, this.size)
 
     if not na(this.tooltip)
         label.set_tooltip(target, this.tooltip)
@@ -229,13 +229,13 @@ export method textColor(LabelUpdater this, color value) =>
         this.updates.textColor := value
     this
 
-// @function Sets the text size with change tracking (fluent interface)
+// @function Sets the size with change tracking (fluent interface)
 // @param this (LabelUpdater) The LabelUpdater instance
-// @param value (string) New text size
+// @param value (string) The new size
 // @returns (LabelUpdater) Self-reference for method chaining
-export method textSize(LabelUpdater this, string value) =>
-    if na(this.latest.textSize) or this.latest.textSize != value
-        this.updates.textSize := value
+export method size(LabelUpdater this, string value) =>
+    if na(this.latest.size) or this.latest.size != value
+        this.updates.size := value
     this
 
 // VISUAL STYLE METHODS
@@ -285,13 +285,6 @@ export method tooltip(LabelUpdater this, string value) =>
         this.updates.tooltip := value
     this
 
-// @function Sets the text size with change tracking (fluent interface) - alias for textSize
-// @param this (LabelUpdater) The LabelUpdater instance
-// @param value (string) New text size
-// @returns (LabelUpdater) Self-reference for method chaining
-export method size(LabelUpdater this, string value) =>
-    this.textSize(value)
-
 // @function Applies pending changes to linked label and updates tracking
 // @param this (LabelUpdater) The LabelUpdater instance
 // @returns (LabelUpdater) Self-reference for method chaining
@@ -310,40 +303,40 @@ export method apply(LabelUpdater this) =>
         this.latest.x := this.updates.x
         this.updates.x := na
 
+    if not na(this.updates.yloc)
+        label.set_yloc(this.label, this.updates.yloc)
+        this.latest.yloc := this.updates.yloc
+        this.updates.yloc := na
+
     if not na(this.updates.y)
         label.set_y(this.label, this.updates.y)
         this.latest.y := this.updates.y
         this.updates.y := na
 
-    if not na(this.updates.textValue)
-        label.set_text(this.label, this.updates.textValue)
-        this.latest.textValue := this.updates.textValue
-        this.updates.textValue := na
+    if not na(this.updates.size)
+        label.set_size(this.label, this.updates.size)
+        this.latest.size := this.updates.size
+        this.updates.size := na
 
     if not na(this.updates.style)
         label.set_style(this.label, this.updates.style)
         this.latest.style := this.updates.style
         this.updates.style := na
 
-    if not na(this.updates.yloc)
-        label.set_yloc(this.label, this.updates.yloc)
-        this.latest.yloc := this.updates.yloc
-        this.updates.yloc := na
-
     if not na(this.updates.bgColor)
         label.set_color(this.label, this.updates.bgColor)
         this.latest.bgColor := this.updates.bgColor
         this.updates.bgColor := na
 
+    if not na(this.updates.textValue)
+        label.set_text(this.label, this.updates.textValue)
+        this.latest.textValue := this.updates.textValue
+        this.updates.textValue := na
+
     if not na(this.updates.textColor)
         label.set_textcolor(this.label, this.updates.textColor)
         this.latest.textColor := this.updates.textColor
         this.updates.textColor := na
-
-    if not na(this.updates.textSize)
-        label.set_size(this.label, this.updates.textSize)
-        this.latest.textSize := this.updates.textSize
-        this.updates.textSize := na
 
     if not na(this.updates.tooltip)
         label.set_tooltip(this.label, this.updates.tooltip)
@@ -356,6 +349,12 @@ export method apply(LabelUpdater this) =>
 // LABELMANAGER METHODS
 ///////////////////////////////////////////////////
 
+// @function Creates a new label and LabelUpdater
+// @returns (LabelUpdater) Newly created LabelUpdater containing the label
+export newLabel() =>
+    // Create new label and LabelUpdater, register and return
+    label.new(bar_index, close, "", size=size.normal).update()
+
 // @function Gets or creates a LabelUpdater for the specified name
 // @param this (LabelManager) The LabelManager instance
 // @param name (string) Unique identifier for the label
@@ -365,9 +364,7 @@ export method get(LabelManager this, string name) =>
         // Return existing LabelUpdater
         this.registry.get(name)
     else
-        // Create new label and LabelUpdater, register and return
-        newLabel = label.new(bar_index, close, "", size=size.normal)
-        newUpdater = newLabel.update()
+        newUpdater = newLabel()
         this.registry.put(name, newUpdater)
         newUpdater
 
