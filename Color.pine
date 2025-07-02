@@ -1,0 +1,162 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Electrified (electrifiedtrading)
+
+// @version=5
+// @description Utility for working with colors.
+library('Color', true)
+
+//////////////////////////////////////////////////
+// @function Determines if two colors are equal.
+// @param a The first color to compare.
+// @param b The second color to compare.
+// @returns True if both colors are equal, false otherwise.
+export method equals(color a, color b) =>
+    isAna = na(a)
+    isBna = na(b)
+    if isAna
+        isBna
+    else if isBna
+        false
+    else if color.r(a) != color.r(b)
+        false
+    else if color.g(a) != color.g(b)
+        false
+    else if color.b(a) != color.b(b)
+        false
+    else
+        color.t(a) == color.t(b)
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Calculates the luminosity of a color using the given red, green, and blue values.
+// @param r The red value of the color, from 0 to 255.
+// @param g The green value of the color, from 0 to 255.
+// @param b The blue value of the color, from 0 to 255.
+// @returns The luminosity of the color, a float between 0 and 1.
+export luminosity(float r, float g, float b) =>
+    (0.299 * r + 0.587 * g + 0.114 * b) / 255
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Calculates the luminosity of a color using its red, green, and blue values.
+// @param c The color to calculate the luminosity for.
+// @returns The luminosity of the color, a float between 0 and 1.
+export method luminosity(color c) =>
+    na(c) ? na : luminosity(color.r(c), color.g(c), color.b(c))
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Returns a color that is either black or white depending on the luminosity of the given background color. If the background color is na, returns gray.
+// @param bgColor The background color to determine the contrast color for.
+// @param keepNa When true and the value of bgColor is na the return value will be na; otherwise the if bgColor is na the return will be gray.
+// @returns A color that provides high contrast with the given background color.
+export method getContrastColor(color bgColor, bool keepNa = false) =>
+    (na(bgColor) ? true : color.t(bgColor)==100) ? (keepNa ? na : color.rgb(128, 128, 128)) :
+      luminosity(bgColor) > 0.5 ? color.rgb(0, 0, 0) : color.rgb(255, 255, 255)
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Converts a color value to a string in the "rgbt(r,g,b,t)" format.
+// @param color The color to convert.
+// @returns The color value as a string.
+export method tostringRGBT(color color) =>
+    na(color) ? "na" : (
+      "rgbt("+
+      str.tostring(color.r(color))+","+
+      str.tostring(color.g(color))+","+
+      str.tostring(color.b(color))+","+
+      str.tostring(color.t(color))+")")
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Converts an integer between 0 and 15 to its hex equivalent character.
+// @param n The integer value to convert.
+export toHexChar(int n) =>
+    if na(n)
+        runtime.error("Cannot convert na to hex.")
+    if n < 0
+        runtime.error("Value of (n) must be at least zero. Actual: "+str.tostring(n))
+    if n > 15
+        runtime.error("Value of (n) must be less than 16. Actual: "+str.tostring(n))
+
+    // Convert the integer to a hex character
+    switch n
+        10 => 'A'
+        11 => 'B'
+        12 => 'C'
+        13 => 'D'
+        14 => 'E'
+        15 => 'F'
+        => str.tostring(n)
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Converts an integer from 0 to 255 to a 2-character hex string.
+// @param n The integer value to convert.
+export byteToHex(float n) =>
+    if na(n)
+        runtime.error("Cannot convert na to hex.")
+    if n < 0
+        runtime.error("Value of (n) must be at least zero. Actual: "+str.tostring(n))
+    if n > 255
+        runtime.error("Value of (n) must be less than 255. Actual: "+str.tostring(n))
+
+    // Calculate the hex value for the tens place
+    tens = math.floor(n / 16)
+
+    // Calculate the hex value for the ones place
+    ones = math.floor(n % 16)
+
+    // Convert the tens and ones values to hex characters
+    tens_char = toHexChar(tens)
+    ones_char = toHexChar(ones)
+
+    // Return the hex string
+    tens_char + ones_char
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Converts a color to its hex string (#FFFFFF).
+// @param n The color to convert.
+// @returns The six digit hex string.
+export method toHex(color color) =>
+    na(color) ? "na" : "#" + byteToHex(color.r(color)) + byteToHex(color.r(color)) + byteToHex(color.r(color))
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+brighten(float c, float ratio) =>
+    ratio > 0 ?
+      c + (255 - c) * ratio :
+      c * (1 + ratio)
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Proportionally adjusts the RGB values of a color. A value of positive (+) 100 will result in white. A value of negative (-) 100 will result in black.
+// @param c The color to adjust.
+// @param value The percent amount (-100 to +100) to adjust the color by.  Values less than -100 or greater than +100 will be clamped.
+// @returns The resultant color.
+export method brighten(color c, float value) =>
+    if na(c) or nz(value, 0) == 0
+        c
+    else
+        t = color.t(c)
+        if value >= 100
+            color.rgb(255, 255, 255, t)
+        else if value <= -100
+            color.rgb(0, 0, 0, t)
+        else
+            ratio = value / 100
+            r = brighten(color.r(c), ratio)
+            g = brighten(color.g(c), ratio)
+            b = brighten(color.b(c), ratio)
+            color.rgb(r,g,b,t)
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Proportionally adjusts the RGB values of a color. A value of positive (+) 100 will result in black. A value of negative (-) 100 will result in white.
+// @param c The color to adjust.
+// @param value The percent amount (-100 to +100) to adjust the color by.  Values less than -100 or greater than +100 will be clamped.
+// @returns The resultant color.
+export method darken(color c, float value) =>
+    brighten(c, -nz(value))
+//////////////////////////////////////////////////
