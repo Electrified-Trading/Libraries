@@ -1,7 +1,7 @@
 // This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
 // © Electrified (electrifiedtrading)
 
-// @version=5
+// @version=6
 // @description Utility for working with colors.
 library('Color', true)
 
@@ -11,11 +11,9 @@ library('Color', true)
 // @param b The second color to compare.
 // @returns True if both colors are equal, false otherwise.
 export method equals(color a, color b) =>
-    isAna = na(a)
-    isBna = na(b)
-    if isAna
-        isBna
-    else if isBna
+    if na(a)
+        na(b)
+    else if na(b)
         false
     else if color.r(a) != color.r(b)
         false
@@ -159,4 +157,37 @@ export method brighten(color c, float value) =>
 // @returns The resultant color.
 export method darken(color c, float value) =>
     brighten(c, -nz(value))
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// Color interpolation helper for smooth gradients
+interpolate(float a, float b, float t) => a + (b - a) * t
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Linear interpolation between two colors.
+// @param color1 The first color.
+// @param color2 The second color.
+// @param t The interpolation factor (0.0 = color1, 1.0 = color2).
+// @returns The interpolated color.
+export lerp(color color1, color color2, float t) =>
+    if na(color1) or na(color2) or na(t)
+        na
+    else
+        clampedT = math.max(0.0, math.min(1.0, t))
+        color.rgb(
+          interpolate(color.r(color1), color.r(color2), clampedT),
+          interpolate(color.g(color1), color.g(color2), clampedT),
+          interpolate(color.b(color1), color.b(color2), clampedT),
+          interpolate(color.t(color1), color.t(color2), clampedT))
+//////////////////////////////////////////////////
+
+//////////////////////////////////////////////////
+// @function Blends this color with another color using linear interpolation.
+// @param this The starting color.
+// @param toColor The target color to blend with.
+// @param t The blend factor (0.0 = this, 1.0 = toColor).
+// @returns The blended color.
+export method blendWith(color this, color toColor, float t) =>
+    lerp(this, toColor, t)
 //////////////////////////////////////////////////
